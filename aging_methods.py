@@ -13,7 +13,7 @@ def resample_time(time_series):
     return resampled_series
 
 
-def calc_cap_IR_drop(df, mass=0.0029, area=0.502):
+def calc_cap_IR_drop(df, mass, area):
     """"""
     cycles_to_process = df.query("CycleNo % 6 == 0").reset_index(drop=True)
     cycles_to_process["Fixed_time"] = resample_time(cycles_to_process["TestTime/Sec"])
@@ -68,7 +68,7 @@ def calc_cap_IR_drop(df, mass=0.0029, area=0.502):
     return data_dict
 
 
-def plot_first_and_last_cycle(data_dict):
+def plot_first_and_last_cycle(data_dict, num):
     keys = list(data_dict.keys())
     first, last = keys[0], keys[-1]
 
@@ -85,7 +85,7 @@ def plot_first_and_last_cycle(data_dict):
         data_dict[last]["Discharge_time"] - data_dict[last]["Charge_time"].iloc[0]
     )
 
-    plt.figure("First/Last Cycle")
+    plt.figure(num)
     plt.plot(
         charge_time_first,
         data_dict[first]["Charge_voltage"],
@@ -98,7 +98,7 @@ def plot_first_and_last_cycle(data_dict):
         discharge_time_first,
         data_dict[first]["Discharge_voltage"],
         "-o",
-        color="tab:blue",
+        color="k",
         markevery=0.01,
     )
     plt.plot(
@@ -107,16 +107,16 @@ def plot_first_and_last_cycle(data_dict):
         "-o",
         color="tab:red",
         markevery=0.01,
-        markerfacecolor="none",
+        markerfacecolor="white",
         label="After aging",
     )
     plt.plot(
         discharge_time_last,
         data_dict[last]["Discharge_voltage"],
         "-o",
-        color="tab:blue",
+        color="k",
         markevery=0.01,
-        markerfacecolor="none",
+        markerfacecolor="white",
     )
     plt.xlabel("Time (s)")
     plt.ylabel("Potential (V)")
@@ -156,7 +156,7 @@ def resist_increase():
     pass
 
 
-def plot_IR_drop_cap_fade(data):
+def plot_IR_drop_cap_fade(data, num):
 
     x = []
     y_IR = []
@@ -166,11 +166,18 @@ def plot_IR_drop_cap_fade(data):
         y_IR.append(data[cycle]["IR drop"])
         y_cap.append(data[cycle]["Discharge_cap"])
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(num)
     fig.canvas.manager.set_window_title("Capacitance Fade/IR Drop")
     ax2 = ax.twinx()
     ax.plot(x, y_cap, "-o", color="tab:red")
+    ax.spines["left"].set_color("tab:red")
+    ax.tick_params(axis="y", colors="tab:red")
+    ax.yaxis.label.set_color("tab:red")
     ax2.plot(x, y_IR, "-o", color="tab:blue", alpha=0.7)
+    ax2.spines["right"].set_color("tab:blue")
+    ax2.tick_params(axis="y", colors="tab:blue")
+    ax2.yaxis.label.set_color("tab:blue")
     ax.set_xlabel("Aging Cycle #")
     ax.set_ylabel("Capacitance (F/g)")
-    ax2.set_ylabel("IR Drop ($\Omega$.cm$^2$)")
+    ax2.set_ylabel("IR Drop ($\Omega$.cm$^2$)", rotation=270, va="bottom")
+    fig.tight_layout()

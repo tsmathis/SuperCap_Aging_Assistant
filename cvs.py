@@ -11,5 +11,8 @@ def cv_cap_current_density(df, rate, mass):
     return potential, capacitance, current_density
 
 
+# plot func?
+
+
 def calc_capacitance(df, rate, mass):
     last_cycle = df["cycle number"].unique()[-1]
