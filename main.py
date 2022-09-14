@@ -9,7 +9,10 @@ def main():
 
     # aging_data = pd.read_csv("4-19-04-oYP-29-138-ACN-Et4NBF4(2)220506_003_6.csv")
     eis = pd.read_table(
-        r"E:\CIRIMAT_data\transfer_3833898_files_5c453f1e\av vieill\19-04-22-SW2elec-9mm-oYP50F-S1-29x2-124 et 139µm -ACN 15M Et4NBF4_06_PEIS_C02.txt"
+        r"test_data\eis_before_aging\19-04-22-SW2elec-9mm-oYP50F-S1-29x2-124 et 139µm -ACN 15M Et4NBF4_06_PEIS_C02.txt"
+    )
+    eis2 = pd.read_table(
+        r"test_data\eis_after_aging\apV19-04-22-9mm-oYP50F-S1-29x2-124 139µm -ACN Et4NBF4_06_PEIS_C02.txt"
     )
     # # data = calc_cap_IR_drop(aging_data)
     # # plot_data(data)
@@ -21,9 +24,9 @@ def main():
     # plt.show()
 
     calc_eis_cap(eis)
-    nyquist_plots(eis, 1)
-    plot_caps_vs_freq(eis, 2)
-    plot_img_cap_vs_freq(eis, 3)
+    calc_eis_cap(eis2)
+    plot_caps_vs_freq(eis, 1)
+    plot_caps_vs_freq(eis2, 1)
 
     plt.show()
 

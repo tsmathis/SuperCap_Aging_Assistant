@@ -26,4 +26,3 @@ def plot_img_cap_vs_freq(df, num, area=None):
     if not area:
         plt.figure(num)
         plt.plot(df["Re(Z)/Ohm"], df["C''"], "-o")
-        plt.xscale("log")
