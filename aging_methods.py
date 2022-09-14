@@ -13,11 +13,6 @@ def resample_time(time_series):
     return resampled_series
 
 
-# need to implement
-def get_first_and_last_cycle(df):
-    pass
-
-
 def calc_cap_IR_drop(df, mass=0.0029, area=0.502):
     """"""
     cycles_to_process = df.query("CycleNo % 6 == 0").reset_index(drop=True)
@@ -73,6 +68,61 @@ def calc_cap_IR_drop(df, mass=0.0029, area=0.502):
     return data_dict
 
 
+def plot_first_and_last_cycle(data_dict):
+    keys = list(data_dict.keys())
+    first, last = keys[0], keys[-1]
+
+    charge_time_first = (
+        data_dict[first]["Charge_time"] - data_dict[first]["Charge_time"].iloc[0]
+    )
+    discharge_time_first = (
+        data_dict[first]["Discharge_time"] - data_dict[first]["Charge_time"].iloc[0]
+    )
+    charge_time_last = (
+        data_dict[last]["Charge_time"] - data_dict[last]["Charge_time"].iloc[0]
+    )
+    discharge_time_last = (
+        data_dict[last]["Discharge_time"] - data_dict[last]["Charge_time"].iloc[0]
+    )
+
+    plt.figure("First/Last Cycle")
+    plt.plot(
+        charge_time_first,
+        data_dict[first]["Charge_voltage"],
+        "-o",
+        color="tab:red",
+        markevery=0.01,
+        label="Before first aging cycle",
+    )
+    plt.plot(
+        discharge_time_first,
+        data_dict[first]["Discharge_voltage"],
+        "-o",
+        color="tab:blue",
+        markevery=0.01,
+    )
+    plt.plot(
+        charge_time_last,
+        data_dict[last]["Charge_voltage"],
+        "-o",
+        color="tab:red",
+        markevery=0.01,
+        markerfacecolor="none",
+        label="After aging",
+    )
+    plt.plot(
+        discharge_time_last,
+        data_dict[last]["Discharge_voltage"],
+        "-o",
+        color="tab:blue",
+        markevery=0.01,
+        markerfacecolor="none",
+    )
+    plt.xlabel("Time (s)")
+    plt.ylabel("Potential (V)")
+    plt.legend()
+
+
 def calc_Qirr(df):
 
     floating_data = df.query("StepStatus == 'CVC'")
@@ -106,55 +156,21 @@ def resist_increase():
     pass
 
 
-def plot_data(data):
-    fig1 = plt.figure("CCD curves")
-    for cycle in data:
-        m, b = data[cycle]["Discharge_slope/intercept"]
-        m2, b2 = data[cycle]["Charge_slope/intercept"]
-        plt.scatter(
-            data[cycle]["Charge_time"],
-            data[cycle]["Charge_voltage"],
-            color="tab:orange",
-            alpha=0.4,
-        )
-        plt.scatter(
-            data[cycle]["Discharge_time"],
-            data[cycle]["Discharge_voltage"],
-            color="tab:blue",
-            alpha=0.4,
-        )
-        plt.plot(
-            data[cycle]["Discharge_time"],
-            data[cycle]["Discharge_time"] * m + b,
-            color="tab:red",
-        )
-        plt.plot(
-            data[cycle]["Charge_time"],
-            data[cycle]["Charge_time"] * m2 + b2,
-            color="tab:red",
-        )
-    plt.xlabel("Time (s)")
-    plt.ylabel("Voltage (V)")
+def plot_IR_drop_cap_fade(data):
 
-    fig2 = plt.figure("IR Drop")
-    x_IR = []
-    y_IR = []
-    for cycle in data:
-        x_IR.append(cycle / 6)
-        y_IR.append(data[cycle]["IR drop"])
-
-    plt.plot(x_IR, y_IR, "-o", color="tab:blue")
-    plt.xlabel("Cycle #")
-    plt.ylabel("IR Drop ($\Omega$)")
-
-    fig3 = plt.figure("Capacitance")
     x = []
-    y = []
+    y_IR = []
+    y_cap = []
     for cycle in data:
         x.append(cycle / 6)
-        y.append(data[cycle]["Discharge_cap"])
-    plt.plot(x, y, "-o", color="tab:red")
-    plt.xlabel("Cycle #")
-    plt.ylabel("Discharge_Capacitance (mF)")
+        y_IR.append(data[cycle]["IR drop"])
+        y_cap.append(data[cycle]["Discharge_cap"])
 
-    plt.show()
+    fig, ax = plt.subplots()
+    fig.canvas.manager.set_window_title("Capacitance Fade/IR Drop")
+    ax2 = ax.twinx()
+    ax.plot(x, y_cap, "-o", color="tab:red")
+    ax2.plot(x, y_IR, "-o", color="tab:blue", alpha=0.7)
+    ax.set_xlabel("Aging Cycle #")
+    ax.set_ylabel("Capacitance (F/g)")
+    ax2.set_ylabel("IR Drop ($\Omega$.cm$^2$)")
