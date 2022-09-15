@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from collections import Counter
+from itertools import accumulate
 
 
 def resample_time(time_series):
@@ -68,7 +69,7 @@ def calc_cap_IR_drop(df, mass, area):
     return data_dict
 
 
-def plot_first_and_last_cycle(data_dict, num):
+def plot_first_and_last_cycle(data_dict):
     keys = list(data_dict.keys())
     first, last = keys[0], keys[-1]
 
@@ -85,7 +86,7 @@ def plot_first_and_last_cycle(data_dict, num):
         data_dict[last]["Discharge_time"] - data_dict[last]["Charge_time"].iloc[0]
     )
 
-    plt.figure(num)
+    plt.figure()
     plt.plot(
         charge_time_first,
         data_dict[first]["Charge_voltage"],
@@ -124,40 +125,55 @@ def plot_first_and_last_cycle(data_dict, num):
 
 
 def calc_Qirr(df):
-
     floating_data = df.query("StepStatus == 'CVC'")
     cycles = floating_data["CycleNo"].unique()
     qirr_dict = {}
 
     for idx, cycle in enumerate(cycles):
         qirr_dict[idx + 1] = abs(
-            np.trapz(
-                y=floating_data.query("CycleNo == @cycle")["Current/mA"][::10],
-                x=resample_time(
+            np.mean(
+                floating_data.query("CycleNo == @cycle")["Current/mA"][::10]
+                * resample_time(
                     floating_data.query("CycleNo == @cycle")["TestTime/Sec"][::10]
-                ),
+                )
             )
             / 3600
         )
 
-    return qirr_dict
+    total_qirr = list(accumulate(qirr_dict.values()))
+
+    return qirr_dict, total_qirr
 
 
-# need to get mean of last 100 pts of floating period (in uA)
 def get_leakage_current(df):
-    pass
+    floating_data = df.query("StepStatus == 'CVC'")
+    print(floating_data.query("CycleNo == 7")["Current/mA"][-100:])
+    return [
+        round(
+            np.mean(floating_data.query("CycleNo == @cycle")["Current/mA"][-100:])
+            * 1000,
+            2,
+        )
+        for cycle in cycles
+    ]
 
 
-def cap_decrease():
-    pass
+def cap_decrease(data_dict):
+    first = data_dict[next(iter(data_dict))]["Discharge_cap"]
+    return [
+        round((data_dict[key]["Discharge_cap"] / first) * 100, 1) for key in data_dict
+    ]
 
 
-def resist_increase():
-    pass
+def resist_increase(data_dict):
+    first = data_dict[next(iter(data_dict))]["IR drop"]
+    return [
+        round(((data_dict[key]["IR drop"] - first) / first) * 100, 1)
+        for key in data_dict
+    ]
 
 
-def plot_IR_drop_cap_fade(data, num):
-
+def plot_IR_drop_cap_fade(data):
     x = []
     y_IR = []
     y_cap = []
@@ -166,7 +182,7 @@ def plot_IR_drop_cap_fade(data, num):
         y_IR.append(data[cycle]["IR drop"])
         y_cap.append(data[cycle]["Discharge_cap"])
 
-    fig, ax = plt.subplots(num)
+    fig, ax = plt.subplots()
     fig.canvas.manager.set_window_title("Capacitance Fade/IR Drop")
     ax2 = ax.twinx()
     ax.plot(x, y_cap, "-o", color="tab:red")

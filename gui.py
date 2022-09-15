@@ -1,5 +1,6 @@
 import sys, os, subprocess
 import matplotlib
+import time
 import numpy as np
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
@@ -15,18 +16,49 @@ from PyQt5.QtWidgets import (
     QLabel,
     QVBoxLayout,
     QHBoxLayout,
+    QFormLayout,
     QWidget,
+    QFrame,
+    QLineEdit,
 )
+
+
+class SecondWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        layout = QVBoxLayout()
+        self.label = QLabel("New Window")
+        layout.addWidget(self.label)
+
+        self.container = QWidget()
+        self.container.setLayout(layout)
+        self.setCentralWidget(self.container)
 
 
 class MainWindow(QMainWindow):
     def __init__(self, parent=None) -> None:
         super(MainWindow, self).__init__(parent)
+        self.data_window = SecondWindow()
 
         self.setWindowTitle("Test GUI layout")
         self.resize(1200, 677)
 
         self.page_layout = QVBoxLayout()
+
+        entry_boxes = QWidget()
+        entry_layout = QFormLayout()
+        entry_boxes.setLayout(entry_layout)
+        mass_entry = QLineEdit()
+        area_entry = QLineEdit()
+        entry_layout.addRow("Enter electrode mass:", mass_entry)
+        entry_layout.addRow("Enter electrode area:", area_entry)
+        self.page_layout.addWidget(entry_boxes)
+
+        div = QFrame()
+        div.setFrameShape(QFrame.HLine)
+        div.setLineWidth(3)
+        self.page_layout.addWidget(div)
 
         aging_wid = QWidget()
         aging_layout = QVBoxLayout()
@@ -38,6 +70,11 @@ class MainWindow(QMainWindow):
         aging_layout.addWidget(message)
         aging_layout.addWidget(aging_files_button)
         self.page_layout.addWidget(aging_wid)
+
+        div2 = QFrame()
+        div2.setFrameShape(QFrame.HLine)
+        div2.setLineWidth(3)
+        self.page_layout.addWidget(div2)
 
         cvs = QWidget()
         cvs_layout = QVBoxLayout()
@@ -63,6 +100,11 @@ class MainWindow(QMainWindow):
         cvs.setLayout(cvs_layout)
 
         self.page_layout.addWidget(cvs)
+
+        div3 = QFrame()
+        div3.setFrameShape(QFrame.HLine)
+        div3.setLineWidth(3)
+        self.page_layout.addWidget(div3)
 
         eis = QWidget()
         eis_layout = QHBoxLayout()
@@ -93,13 +135,24 @@ class MainWindow(QMainWindow):
         eis_after.addWidget(one_a)
         self.page_layout.addWidget(eis)
 
+        div4 = QFrame()
+        div4.setFrameShape(QFrame.HLine)
+        div4.setLineWidth(3)
+        self.page_layout.addWidget(div4)
+
         process = QPushButton("Process data")
         process.setStyleSheet("background-color: #007AFF")
+        process.clicked.connect(self.show_data_window)
         self.page_layout.addWidget(process)
 
         container = QWidget()
         container.setLayout(self.page_layout)
         self.setCentralWidget(container)
+
+    def show_data_window(self):
+        self.close()
+        time.sleep(1)
+        self.data_window.showMaximized()
 
 
 def main():

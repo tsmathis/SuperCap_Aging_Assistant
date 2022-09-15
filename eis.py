@@ -4,8 +4,9 @@ import matplotlib.pyplot as plt
 
 
 def calc_eis_cap(df):
-    df["C''"] = df["Re(Z)/Ohm"] / (df["freq/Hz"] * df["|Z|/Ohm"] ** 2)
-    df["C'"] = df["-Im(Z)/Ohm"] / (df["freq/Hz"] * df["|Z|/Ohm"] ** 2)
+    # important to convert Hz to rad/s
+    df["C''"] = df["Re(Z)/Ohm"] / (df["freq/Hz"] * 6.28 * df["|Z|/Ohm"] ** 2)
+    df["C'"] = df["-Im(Z)/Ohm"] / (df["freq/Hz"] * 6.28 * df["|Z|/Ohm"] ** 2)
 
 
 def nyquist_plots(df, num, area):
