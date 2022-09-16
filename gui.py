@@ -3,10 +3,11 @@ import matplotlib
 import time
 import numpy as np
 
+from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QIcon, QFont
+from PyQt5.QtCore import Qt, pyqtSignal, QEvent
+from PyQt5.QtGui import QIcon, QFont, QColor, QPalette
 from PyQt5.QtWidgets import (
     QApplication,
     QAction,
@@ -16,6 +17,7 @@ from PyQt5.QtWidgets import (
     QLabel,
     QVBoxLayout,
     QHBoxLayout,
+    QStackedLayout,
     QFormLayout,
     QWidget,
     QFrame,
@@ -23,17 +25,90 @@ from PyQt5.QtWidgets import (
 )
 
 
+class ClickableWidget(QWidget):
+    clicked = pyqtSignal(int)
+
+    def __init__(self, name, idx, parent=None):
+        QWidget.__init__(self, parent)
+        self.idx = idx
+        button = QPushButton(f"{name}", self)
+        button.setProperty("index", idx)
+        button.installEventFilter(self)
+        button.clicked.connect(self.return_idx)
+
+    def eventFilter(self, obj, event):
+        if isinstance(obj, QPushButton) and event.type() == QEvent.MouseButtonPress:
+            i = obj.property("index")
+            self.clicked.emit(i)
+        return QWidget.eventFilter(self, obj, event)
+
+    def return_idx(self):
+        print(self.idx)
+
+
+class MplCanvas(FigureCanvasQTAgg):
+    def __init__(self, parent=None, width=12, height=6, dpi=150):
+        fig = Figure(figsize=(width, height), dpi=dpi, constrained_layout=True)
+        self.axes = fig.add_subplot()
+        super().__init__(fig)
+
+
 class SecondWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        layout = QVBoxLayout()
-        self.label = QLabel("New Window")
-        layout.addWidget(self.label)
+        pagelayout = QHBoxLayout()
+        button_layout = QVBoxLayout()
+        self.stacklayout = QStackedLayout()
 
-        self.container = QWidget()
-        self.container.setLayout(layout)
-        self.setCentralWidget(self.container)
+        pagelayout.addLayout(self.stacklayout)
+        pagelayout.addLayout(button_layout)
+
+        btn = ClickableWidget("Fig 1", idx=0)
+        btn.clicked.connect(self.change_activate_view)
+        test = QPushButton("Test")
+        button_layout.addWidget(btn)
+        button_layout.addWidget(test)
+
+        fig1 = MplCanvas()
+        fig1_toolbar = NavigationToolbar(fig1, self)
+        fig1.axes.plot(np.linspace(0, 10, 501), np.tan(np.linspace(0, 10, 501)))
+        window = QWidget()
+        window_layout = QVBoxLayout()
+        window.setLayout(window_layout)
+        window_layout.addWidget(fig1_toolbar)
+        window_layout.addWidget(fig1)
+        self.stacklayout.addWidget(window)
+
+        btn2 = ClickableWidget("Fig 2", idx=1)
+        btn2.clicked.connect(self.change_activate_view)
+        button_layout.addWidget(btn2)
+
+        fig2 = MplCanvas()
+        fig2.axes.plot(np.linspace(0, 10, 501), np.sin(np.linspace(0, 10, 501)))
+        self.stacklayout.addWidget(fig2)
+
+        btn3 = ClickableWidget("Fig 3", idx=2)
+        btn3.clicked.connect(self.change_activate_view)
+        button_layout.addWidget(btn3)
+
+        window3 = QWidget()
+        window3_layout = QVBoxLayout()
+        window3.setLayout(window3_layout)
+        fig3 = MplCanvas()
+        fig3_toolbar = NavigationToolbar(fig3, self)
+        fig3.axes.plot(np.linspace(0, 10, 501), np.cos(np.linspace(0, 10, 501)))
+        fig3.axes.plot(np.linspace(0, 10, 501), np.sin(np.linspace(0, 10, 501)))
+        window3_layout.addWidget(fig3_toolbar)
+        window3_layout.addWidget(fig3)
+        self.stacklayout.addWidget(window3)
+
+        widget = QWidget()
+        widget.setLayout(pagelayout)
+        self.setCentralWidget(widget)
+
+    def change_activate_view(self, clicked):
+        self.stacklayout.setCurrentIndex(clicked)
 
 
 class MainWindow(QMainWindow):
