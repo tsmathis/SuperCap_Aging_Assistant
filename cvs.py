@@ -3,16 +3,30 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def cv_cap_current_density(df, rate, mass):
-    last_cycle = df["cycle number"].unique()[-1]
-    potential = capacitance = df.query("`cycle number` == @last_cycle")["Ewe/V"]
-    capacitance = df.query("`cycle number` == @last_cycle")["<I>/mA"] / (mass * rate)
-    current_density = df.query("`cycle number` == @last_cycle")["<I>/mA"] / (mass)
-    return potential, capacitance, current_density
+class CVs:
+    def __init__(self, rate, mass) -> None:
+        self.rate = rate
+        self.mass = mass
 
+    def read_data(self, file_name):
+        self.df = pd.read_table(file_name)
+        self.last_cycle = self.df["cycle number"].unique()[-1]
 
-# plot func?
+    def cv_cap_current_density(self, axis, label):
+        potential = capacitance = self.df.query("`cycle number` == @self.last_cycle")[
+            "Ewe/V"
+        ]
+        capacitance = self.df.query("`cycle number` == @self.last_cycle")["<I>/mA"] / (
+            self.mass * self.rate
+        )
+        current_density = self.df.query("`cycle number` == @self.last_cycle")[
+            "<I>/mA"
+        ] / (self.mass)
 
+        axis.plot(potential, capacitance, label=f"{self.rate} mV/s {label}")
+        axis.set_xlabel("Potential (V)")
+        axis.set_ylabel("Specific Capacitance (F/g)")
+        axis.legend()
 
-def calc_capacitance(df, rate, mass):
-    last_cycle = df["cycle number"].unique()[-1]
+    def calc_capacitance(self):
+        pass

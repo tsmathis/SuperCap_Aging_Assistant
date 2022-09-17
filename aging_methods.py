@@ -1,199 +1,206 @@
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 
 from collections import Counter
 from itertools import accumulate
 
 
-def resample_time(time_series):
-    """"""
-    resampled_series = []
-    counter = dict(sorted(Counter(time_series).items()))
-    for num in counter:
-        resampled_series.extend(np.linspace(start=num, stop=num + 1, num=counter[num]))
-    return resampled_series
+class AgingData:
+    def __init__(self, mass, area) -> None:
+        self.mass = mass
+        self.area = area
 
+    def read_data(self, file_name):
+        self.df = pd.read_csv(file_name)
 
-def calc_cap_IR_drop(df, mass, area):
-    """"""
-    cycles_to_process = df.query("CycleNo % 6 == 0").reset_index(drop=True)
-    cycles_to_process["Fixed_time"] = resample_time(cycles_to_process["TestTime/Sec"])
-
-    cycle_num = cycles_to_process["CycleNo"].unique()
-    data_dict = {cycle: {} for cycle in cycle_num}
-
-    for cycle in cycle_num:
-        current_zero_val = (
-            cycles_to_process.query("CycleNo == @cycle")["Current/mA"].iloc[0] / 1000
-        )
-
-        data_dict[cycle]["Charge_time"] = cycles_to_process.query(
-            "CycleNo == @cycle & StepStatus == 'CCC'"
-        )["Fixed_time"]
-        data_dict[cycle]["Charge_voltage"] = cycles_to_process.query(
-            "CycleNo == @cycle & StepStatus == 'CCC'"
-        )["Voltage/V"]
-
-        data_dict[cycle]["Discharge_time"] = cycles_to_process.query(
-            "CycleNo == @cycle & StepStatus == 'CCD'"
-        )["Fixed_time"]
-        data_dict[cycle]["Discharge_voltage"] = cycles_to_process.query(
-            "CycleNo == @cycle & StepStatus == 'CCD'"
-        )["Voltage/V"]
-
-        data_dict[cycle]["IR drop"] = (
-            area
-            * (
-                data_dict[cycle]["Charge_voltage"].iloc[-1]
-                - data_dict[cycle]["Discharge_voltage"].iloc[0]
+    def resample_time(self, time_series):
+        """"""
+        resampled_series = []
+        counter = dict(sorted(Counter(time_series).items()))
+        for num in counter:
+            resampled_series.extend(
+                np.linspace(start=num, stop=num + 1, num=counter[num])
             )
-            / (current_zero_val)
+        return resampled_series
+
+    def calc_cap_IR_drop(self):
+        """"""
+        cycles_to_process = self.df.query("CycleNo % 6 == 0").reset_index(drop=True)
+        cycles_to_process["Fixed_time"] = self.resample_time(
+            cycles_to_process["TestTime/Sec"]
         )
 
-        charge_m, charge_b = np.polyfit(
-            x=data_dict[cycle]["Charge_time"],
-            y=data_dict[cycle]["Charge_voltage"],
-            deg=1,
-        )
-        dis_m, dis_b = np.polyfit(
-            x=data_dict[cycle]["Discharge_time"],
-            y=data_dict[cycle]["Discharge_voltage"],
-            deg=1,
-        )
+        cycle_num = cycles_to_process["CycleNo"].unique()
+        self.data_dict = {cycle: {} for cycle in cycle_num}
 
-        data_dict[cycle]["Charge_slope/intercept"] = (charge_m, charge_b)
-        data_dict[cycle]["Discharge_slope/intercept"] = (dis_m, dis_b)
-        data_dict[cycle]["Charge_cap"] = 2 * (1 / charge_m) * current_zero_val
-        data_dict[cycle]["Discharge_cap"] = (2 * (-1 / dis_m) * current_zero_val) / mass
+        for cycle in cycle_num:
+            current_zero_val = (
+                cycles_to_process.query("CycleNo == @cycle")["Current/mA"].iloc[0]
+                / 1000
+            )
 
-    return data_dict
+            self.data_dict[cycle]["Charge_time"] = cycles_to_process.query(
+                "CycleNo == @cycle & StepStatus == 'CCC'"
+            )["Fixed_time"]
+            self.data_dict[cycle]["Charge_voltage"] = cycles_to_process.query(
+                "CycleNo == @cycle & StepStatus == 'CCC'"
+            )["Voltage/V"]
 
+            self.data_dict[cycle]["Discharge_time"] = cycles_to_process.query(
+                "CycleNo == @cycle & StepStatus == 'CCD'"
+            )["Fixed_time"]
+            self.data_dict[cycle]["Discharge_voltage"] = cycles_to_process.query(
+                "CycleNo == @cycle & StepStatus == 'CCD'"
+            )["Voltage/V"]
 
-def plot_first_and_last_cycle(data_dict):
-    keys = list(data_dict.keys())
-    first, last = keys[0], keys[-1]
-
-    charge_time_first = (
-        data_dict[first]["Charge_time"] - data_dict[first]["Charge_time"].iloc[0]
-    )
-    discharge_time_first = (
-        data_dict[first]["Discharge_time"] - data_dict[first]["Charge_time"].iloc[0]
-    )
-    charge_time_last = (
-        data_dict[last]["Charge_time"] - data_dict[last]["Charge_time"].iloc[0]
-    )
-    discharge_time_last = (
-        data_dict[last]["Discharge_time"] - data_dict[last]["Charge_time"].iloc[0]
-    )
-
-    plt.figure()
-    plt.plot(
-        charge_time_first,
-        data_dict[first]["Charge_voltage"],
-        "-o",
-        color="tab:red",
-        markevery=0.01,
-        label="Before first aging cycle",
-    )
-    plt.plot(
-        discharge_time_first,
-        data_dict[first]["Discharge_voltage"],
-        "-o",
-        color="k",
-        markevery=0.01,
-    )
-    plt.plot(
-        charge_time_last,
-        data_dict[last]["Charge_voltage"],
-        "-o",
-        color="tab:red",
-        markevery=0.01,
-        markerfacecolor="white",
-        label="After aging",
-    )
-    plt.plot(
-        discharge_time_last,
-        data_dict[last]["Discharge_voltage"],
-        "-o",
-        color="k",
-        markevery=0.01,
-        markerfacecolor="white",
-    )
-    plt.xlabel("Time (s)")
-    plt.ylabel("Potential (V)")
-    plt.legend()
-
-
-def calc_Qirr(df):
-    floating_data = df.query("StepStatus == 'CVC'")
-    cycles = floating_data["CycleNo"].unique()
-    qirr_dict = {}
-
-    for idx, cycle in enumerate(cycles):
-        qirr_dict[idx + 1] = abs(
-            np.mean(
-                floating_data.query("CycleNo == @cycle")["Current/mA"][::10]
-                * resample_time(
-                    floating_data.query("CycleNo == @cycle")["TestTime/Sec"][::10]
+            self.data_dict[cycle]["IR drop"] = (
+                self.area
+                * (
+                    self.data_dict[cycle]["Charge_voltage"].iloc[-1]
+                    - self.data_dict[cycle]["Discharge_voltage"].iloc[0]
                 )
+                / (current_zero_val)
             )
-            / 3600
+
+            charge_m, charge_b = np.polyfit(
+                x=self.data_dict[cycle]["Charge_time"],
+                y=self.data_dict[cycle]["Charge_voltage"],
+                deg=1,
+            )
+            dis_m, dis_b = np.polyfit(
+                x=self.data_dict[cycle]["Discharge_time"],
+                y=self.data_dict[cycle]["Discharge_voltage"],
+                deg=1,
+            )
+
+            self.data_dict[cycle]["Charge_slope/intercept"] = (charge_m, charge_b)
+            self.data_dict[cycle]["Discharge_slope/intercept"] = (dis_m, dis_b)
+            self.data_dict[cycle]["Charge_cap"] = 2 * (1 / charge_m) * current_zero_val
+            self.data_dict[cycle]["Discharge_cap"] = (
+                2 * (-1 / dis_m) * current_zero_val
+            ) / self.mass
+
+    def plot_first_and_last_cycle(self, axis):
+        keys = list(self.data_dict.keys())
+        first, last = keys[0], keys[-1]
+
+        charge_time_first = (
+            self.data_dict[first]["Charge_time"]
+            - self.data_dict[first]["Charge_time"].iloc[0]
+        )
+        discharge_time_first = (
+            self.data_dict[first]["Discharge_time"]
+            - self.data_dict[first]["Charge_time"].iloc[0]
+        )
+        charge_time_last = (
+            self.data_dict[last]["Charge_time"]
+            - self.data_dict[last]["Charge_time"].iloc[0]
+        )
+        discharge_time_last = (
+            self.data_dict[last]["Discharge_time"]
+            - self.data_dict[last]["Charge_time"].iloc[0]
         )
 
-    total_qirr = list(accumulate(qirr_dict.values()))
-
-    return qirr_dict, total_qirr
-
-
-def get_leakage_current(df):
-    floating_data = df.query("StepStatus == 'CVC'")
-    print(floating_data.query("CycleNo == 7")["Current/mA"][-100:])
-    return [
-        round(
-            np.mean(floating_data.query("CycleNo == @cycle")["Current/mA"][-100:])
-            * 1000,
-            2,
+        axis.plot(
+            charge_time_first,
+            self.data_dict[first]["Charge_voltage"],
+            "-o",
+            color="tab:red",
+            markevery=0.01,
+            label="Before first aging cycle",
         )
-        for cycle in cycles
-    ]
+        axis.plot(
+            discharge_time_first,
+            self.data_dict[first]["Discharge_voltage"],
+            "-o",
+            color="k",
+            markevery=0.01,
+        )
+        axis.plot(
+            charge_time_last,
+            self.data_dict[last]["Charge_voltage"],
+            "-o",
+            color="tab:red",
+            markevery=0.01,
+            markerfacecolor="white",
+            label="After aging",
+        )
+        axis.plot(
+            discharge_time_last,
+            self.data_dict[last]["Discharge_voltage"],
+            "-o",
+            color="k",
+            markevery=0.01,
+            markerfacecolor="white",
+        )
+        axis.set_xlabel("Time (s)")
+        axis.set_ylabel("Potential (V)")
+        axis.legend()
 
+    def calc_Qirr(self):
+        floating_data = self.df.query("StepStatus == 'CVC'")
+        cycles = floating_data["CycleNo"].unique()
+        self.qirr_dict = {}
 
-def cap_decrease(data_dict):
-    first = data_dict[next(iter(data_dict))]["Discharge_cap"]
-    return [
-        round((data_dict[key]["Discharge_cap"] / first) * 100, 1) for key in data_dict
-    ]
+        for idx, cycle in enumerate(cycles):
+            self.qirr_dict[idx + 1] = abs(
+                np.mean(
+                    floating_data.query("CycleNo == @cycle")["Current/mA"][::10]
+                    * self.resample_time(
+                        floating_data.query("CycleNo == @cycle")["TestTime/Sec"][::10]
+                    )
+                )
+                / 3600
+            )
 
+        self.total_qirr = list(accumulate(self.qirr_dict.values()))
 
-def resist_increase(data_dict):
-    first = data_dict[next(iter(data_dict))]["IR drop"]
-    return [
-        round(((data_dict[key]["IR drop"] - first) / first) * 100, 1)
-        for key in data_dict
-    ]
+    def get_leakage_current(self):
+        floating_data = self.df.query("StepStatus == 'CVC'")
+        cycles = floating_data["CycleNo"].unique()
+        self.leakage_current = [
+            round(
+                np.mean(floating_data.query("CycleNo == @cycle")["Current/mA"][-100:])
+                * 1000,
+                2,
+            )
+            for cycle in cycles
+        ]
 
+    def get_cap_decrease(self):
+        first = self.data_dict[next(iter(self.data_dict))]["Discharge_cap"]
+        self.cap_decrease = [
+            round((self.data_dict[key]["Discharge_cap"] / first) * 100, 1)
+            for key in self.data_dict
+        ]
 
-def plot_IR_drop_cap_fade(data):
-    x = []
-    y_IR = []
-    y_cap = []
-    for cycle in data:
-        x.append(cycle / 6)
-        y_IR.append(data[cycle]["IR drop"])
-        y_cap.append(data[cycle]["Discharge_cap"])
+    def get_resist_increase(self):
+        first = self.data_dict[next(iter(self.data_dict))]["IR drop"]
+        self.resist_increase = [
+            round(((self.data_dict[key]["IR drop"] - first) / first) * 100, 1)
+            for key in self.data_dict
+        ]
 
-    fig, ax = plt.subplots()
-    fig.canvas.manager.set_window_title("Capacitance Fade/IR Drop")
-    ax2 = ax.twinx()
-    ax.plot(x, y_cap, "-o", color="tab:red")
-    ax.spines["left"].set_color("tab:red")
-    ax.tick_params(axis="y", colors="tab:red")
-    ax.yaxis.label.set_color("tab:red")
-    ax2.plot(x, y_IR, "-o", color="tab:blue", alpha=0.7)
-    ax2.spines["right"].set_color("tab:blue")
-    ax2.tick_params(axis="y", colors="tab:blue")
-    ax2.yaxis.label.set_color("tab:blue")
-    ax.set_xlabel("Aging Cycle #")
-    ax.set_ylabel("Capacitance (F/g)")
-    ax2.set_ylabel("IR Drop ($\Omega$.cm$^2$)", rotation=270, va="bottom")
-    fig.tight_layout()
+    def plot_IR_drop_cap_fade(self, axis):
+        x = []
+        y_IR = []
+        y_cap = []
+        for cycle in self.data_dict:
+            x.append(cycle / 6)
+            y_IR.append(self.data_dict[cycle]["IR drop"])
+            y_cap.append(self.data_dict[cycle]["Discharge_cap"])
+
+        ax2 = axis.twinx()
+        axis.plot(x, y_cap, "-o", color="tab:red")
+        axis.spines["left"].set_color("tab:red")
+        axis.tick_params(axis="y", colors="tab:red")
+        axis.yaxis.label.set_color("tab:red")
+        ax2.plot(x, y_IR, "-o", color="tab:blue")
+        ax2.spines["right"].set_color("tab:blue")
+        ax2.tick_params(axis="y", colors="tab:blue")
+        ax2.yaxis.label.set_color("tab:blue")
+        axis.set_xlabel("Aging Cycle #")
+        axis.set_ylabel("Capacitance (F/g)")
+        ax2.set_ylabel("IR Drop ($\Omega$.cm$^2$)", rotation=270, va="bottom")
+        # figure.tight_layout()

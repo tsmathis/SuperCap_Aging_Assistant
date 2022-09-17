@@ -3,6 +3,8 @@ import matplotlib
 import time
 import numpy as np
 
+from eis import Eis
+
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
@@ -18,39 +20,43 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QStackedLayout,
+    QGridLayout,
     QFormLayout,
     QWidget,
     QFrame,
     QLineEdit,
 )
 
-
-class ClickableWidget(QWidget):
-    clicked = pyqtSignal(int)
-
-    def __init__(self, name, idx, parent=None):
-        QWidget.__init__(self, parent)
-        self.idx = idx
-        button = QPushButton(f"{name}", self)
-        button.setProperty("index", idx)
-        button.installEventFilter(self)
-        button.clicked.connect(self.return_idx)
-
-    def eventFilter(self, obj, event):
-        if isinstance(obj, QPushButton) and event.type() == QEvent.MouseButtonPress:
-            i = obj.property("index")
-            self.clicked.emit(i)
-        return QWidget.eventFilter(self, obj, event)
-
-    def return_idx(self):
-        print(self.idx)
+test_eis = Eis(area=0.502)
+test_eis.read_data(
+    r"test_data\eis_before_aging\19-04-22-SW2elec-9mm-oYP50F-S1-29x2-124 et 139µm -ACN 15M Et4NBF4_04_PEIS_C02.txt"
+)
+test_eis.calc_eis_cap()
 
 
 class MplCanvas(FigureCanvasQTAgg):
-    def __init__(self, parent=None, width=12, height=6, dpi=150):
-        fig = Figure(figsize=(width, height), dpi=dpi, constrained_layout=True)
-        self.axes = fig.add_subplot()
-        super().__init__(fig)
+    def __init__(self, parent=None):
+        self.fig = Figure(dpi=150, constrained_layout=True)
+        self.axes = self.fig.add_subplot()
+        super().__init__(self.fig)
+
+
+class ClickableWidget(MplCanvas):
+    clicked = pyqtSignal(int)
+
+    def __init__(self, idx, parent=None):
+        self.fig = Figure(dpi=100)
+        self.axes = self.fig.add_subplot()
+        super().__init__(self.fig)
+        self.axes.get_xaxis().set_visible(False)
+        self.axes.get_yaxis().set_visible(False)
+        self.index = idx
+        self.installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        if isinstance(obj, MplCanvas) and event.type() == QEvent.MouseButtonPress:
+            self.clicked.emit(self.index)
+        return QWidget.eventFilter(self, obj, event)
 
 
 class SecondWindow(QMainWindow):
@@ -58,50 +64,72 @@ class SecondWindow(QMainWindow):
         super().__init__()
 
         pagelayout = QHBoxLayout()
-        button_layout = QVBoxLayout()
+        button_layout = QGridLayout()
         self.stacklayout = QStackedLayout()
 
-        pagelayout.addLayout(self.stacklayout)
-        pagelayout.addLayout(button_layout)
+        buttons = QWidget()
+        stack = QWidget()
+        stack.setMinimumSize(400, 400)
+        stack.setLayout(self.stacklayout)
+        buttons.setLayout(button_layout)
+        buttons.setFixedWidth(350)
 
-        btn = ClickableWidget("Fig 1", idx=0)
+        for i in range(6):
+            row = QWidget()
+            row.setMaximumSize(150, 150)
+            row.setMinimumSize(50, 50)
+            button_layout.addWidget(row, i, 1, 1, 1)
+
+        pagelayout.addWidget(stack)
+        pagelayout.addWidget(buttons)
+
+        btn = ClickableWidget(idx=0)
+        test_eis.nyquist_plots(figure=btn.fig, axis=btn.axes)
+        btn.setMaximumSize(150, 150)
         btn.clicked.connect(self.change_activate_view)
-        test = QPushButton("Test")
-        button_layout.addWidget(btn)
-        button_layout.addWidget(test)
+        button_layout.addWidget(btn, 0, 0, 1, 1)
 
-        fig1 = MplCanvas()
-        fig1_toolbar = NavigationToolbar(fig1, self)
-        fig1.axes.plot(np.linspace(0, 10, 501), np.tan(np.linspace(0, 10, 501)))
+        fig = MplCanvas()
+        fig_toolbar = NavigationToolbar(fig, self)
+        test_eis.nyquist_plots(label="OCV", figure=fig.fig, axis=fig.axes)
         window = QWidget()
         window_layout = QVBoxLayout()
         window.setLayout(window_layout)
-        window_layout.addWidget(fig1_toolbar)
-        window_layout.addWidget(fig1)
+        window_layout.addWidget(fig_toolbar)
+        window_layout.addWidget(fig)
         self.stacklayout.addWidget(window)
 
-        btn2 = ClickableWidget("Fig 2", idx=1)
+        btn2 = ClickableWidget(idx=1)
+        test_eis.plot_caps_vs_freq(axis=btn2.axes)
+        btn2.setMaximumSize(150, 150)
         btn2.clicked.connect(self.change_activate_view)
-        button_layout.addWidget(btn2)
+        button_layout.addWidget(btn2, 0, 1, 1, 1)
 
         fig2 = MplCanvas()
-        fig2.axes.plot(np.linspace(0, 10, 501), np.sin(np.linspace(0, 10, 501)))
-        self.stacklayout.addWidget(fig2)
+        fig_toolbar = NavigationToolbar(fig2, self)
+        test_eis.plot_caps_vs_freq(label="OCV", axis=fig2.axes)
+        window = QWidget()
+        window_layout = QVBoxLayout()
+        window.setLayout(window_layout)
+        window_layout.addWidget(fig_toolbar)
+        window_layout.addWidget(fig2)
+        self.stacklayout.addWidget(window)
 
-        btn3 = ClickableWidget("Fig 3", idx=2)
+        btn3 = ClickableWidget(idx=2)
+        test_eis.plot_img_cap_vs_real_Z(axis=btn3.axes)
+        btn3.setMaximumSize(150, 150)
         btn3.clicked.connect(self.change_activate_view)
-        button_layout.addWidget(btn3)
+        button_layout.addWidget(btn3, 1, 0, 1, 1)
 
-        window3 = QWidget()
-        window3_layout = QVBoxLayout()
-        window3.setLayout(window3_layout)
         fig3 = MplCanvas()
-        fig3_toolbar = NavigationToolbar(fig3, self)
-        fig3.axes.plot(np.linspace(0, 10, 501), np.cos(np.linspace(0, 10, 501)))
-        fig3.axes.plot(np.linspace(0, 10, 501), np.sin(np.linspace(0, 10, 501)))
-        window3_layout.addWidget(fig3_toolbar)
-        window3_layout.addWidget(fig3)
-        self.stacklayout.addWidget(window3)
+        fig_toolbar = NavigationToolbar(fig3, self)
+        test_eis.plot_img_cap_vs_real_Z(label="OCV", axis=fig3.axes)
+        window = QWidget()
+        window_layout = QVBoxLayout()
+        window.setLayout(window_layout)
+        window_layout.addWidget(fig_toolbar)
+        window_layout.addWidget(fig3)
+        self.stacklayout.addWidget(window)
 
         widget = QWidget()
         widget.setLayout(pagelayout)
