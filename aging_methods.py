@@ -182,7 +182,7 @@ class AgingData:
             for key in self.data_dict
         ]
 
-    def plot_IR_drop_cap_fade(self, axis):
+    def plot_IR_drop_cap_fade_vs_cycle(self, axis):
         x = []
         y_IR = []
         y_cap = []
@@ -203,4 +203,24 @@ class AgingData:
         axis.set_xlabel("Aging Cycle #")
         axis.set_ylabel("Capacitance (F/g)")
         ax2.set_ylabel("IR Drop ($\Omega$.cm$^2$)", rotation=270, va="bottom")
-        # figure.tight_layout()
+
+    def plot_IR_drop_cap_fade_vs_qirr(self, axis):
+        x = self.total_qirr
+        y_IR = []
+        y_cap = []
+        for cycle in self.data_dict:
+            y_IR.append(self.data_dict[cycle]["IR drop"])
+            y_cap.append(self.data_dict[cycle]["Discharge_cap"])
+
+        ax2 = axis.twinx()
+        axis.plot(x, y_cap, "-o", color="tab:red")
+        axis.spines["left"].set_color("tab:red")
+        axis.tick_params(axis="y", colors="tab:red")
+        axis.yaxis.label.set_color("tab:red")
+        ax2.plot(x, y_IR, "-o", color="tab:blue")
+        ax2.spines["right"].set_color("tab:blue")
+        ax2.tick_params(axis="y", colors="tab:blue")
+        ax2.yaxis.label.set_color("tab:blue")
+        axis.set_xlabel("Qirr (mAh)")
+        axis.set_ylabel("Capacitance (F/g)")
+        ax2.set_ylabel("IR Drop ($\Omega$.cm$^2$)", rotation=270, va="bottom")
