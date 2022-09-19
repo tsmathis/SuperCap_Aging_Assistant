@@ -12,7 +12,7 @@ class CVs:
         self.df = pd.read_table(file_name)
         self.last_cycle = self.df["cycle number"].unique()[-1]
 
-    def cv_cap_current_density(self, axis, label):
+    def plot_cv_cap_current_density(self, axis, label=None):
         potential = capacitance = self.df.query("`cycle number` == @self.last_cycle")[
             "Ewe/V"
         ]
@@ -26,7 +26,8 @@ class CVs:
         axis.plot(potential, capacitance, label=f"{self.rate} mV/s {label}")
         axis.set_xlabel("Potential (V)")
         axis.set_ylabel("Specific Capacitance (F/g)")
-        axis.legend()
+        if label:
+            axis.legend()
 
     def calc_capacitance(self):
         pass

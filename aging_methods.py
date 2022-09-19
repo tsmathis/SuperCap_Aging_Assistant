@@ -81,63 +81,6 @@ class AgingData:
                 2 * (-1 / dis_m) * current_zero_val
             ) / self.mass
 
-    def plot_first_and_last_cycle(self, axis):
-        keys = list(self.data_dict.keys())
-        first, last = keys[0], keys[-1]
-
-        charge_time_first = (
-            self.data_dict[first]["Charge_time"]
-            - self.data_dict[first]["Charge_time"].iloc[0]
-        )
-        discharge_time_first = (
-            self.data_dict[first]["Discharge_time"]
-            - self.data_dict[first]["Charge_time"].iloc[0]
-        )
-        charge_time_last = (
-            self.data_dict[last]["Charge_time"]
-            - self.data_dict[last]["Charge_time"].iloc[0]
-        )
-        discharge_time_last = (
-            self.data_dict[last]["Discharge_time"]
-            - self.data_dict[last]["Charge_time"].iloc[0]
-        )
-
-        axis.plot(
-            charge_time_first,
-            self.data_dict[first]["Charge_voltage"],
-            "-o",
-            color="tab:red",
-            markevery=0.01,
-            label="Before first aging cycle",
-        )
-        axis.plot(
-            discharge_time_first,
-            self.data_dict[first]["Discharge_voltage"],
-            "-o",
-            color="k",
-            markevery=0.01,
-        )
-        axis.plot(
-            charge_time_last,
-            self.data_dict[last]["Charge_voltage"],
-            "-o",
-            color="tab:red",
-            markevery=0.01,
-            markerfacecolor="white",
-            label="After aging",
-        )
-        axis.plot(
-            discharge_time_last,
-            self.data_dict[last]["Discharge_voltage"],
-            "-o",
-            color="k",
-            markevery=0.01,
-            markerfacecolor="white",
-        )
-        axis.set_xlabel("Time (s)")
-        axis.set_ylabel("Potential (V)")
-        axis.legend()
-
     def calc_Qirr(self):
         floating_data = self.df.query("StepStatus == 'CVC'")
         cycles = floating_data["CycleNo"].unique()
@@ -224,3 +167,61 @@ class AgingData:
         axis.set_xlabel("Qirr (mAh)")
         axis.set_ylabel("Capacitance (F/g)")
         ax2.set_ylabel("IR Drop ($\Omega$.cm$^2$)", rotation=270, va="bottom")
+
+    def plot_first_and_last_cycle(self, axis, legend=None):
+        keys = list(self.data_dict.keys())
+        first, last = keys[0], keys[-1]
+
+        charge_time_first = (
+            self.data_dict[first]["Charge_time"]
+            - self.data_dict[first]["Charge_time"].iloc[0]
+        )
+        discharge_time_first = (
+            self.data_dict[first]["Discharge_time"]
+            - self.data_dict[first]["Charge_time"].iloc[0]
+        )
+        charge_time_last = (
+            self.data_dict[last]["Charge_time"]
+            - self.data_dict[last]["Charge_time"].iloc[0]
+        )
+        discharge_time_last = (
+            self.data_dict[last]["Discharge_time"]
+            - self.data_dict[last]["Charge_time"].iloc[0]
+        )
+
+        axis.plot(
+            charge_time_first,
+            self.data_dict[first]["Charge_voltage"],
+            "-o",
+            color="tab:red",
+            markevery=0.01,
+            label="Before first aging cycle",
+        )
+        axis.plot(
+            discharge_time_first,
+            self.data_dict[first]["Discharge_voltage"],
+            "-o",
+            color="k",
+            markevery=0.01,
+        )
+        axis.plot(
+            charge_time_last,
+            self.data_dict[last]["Charge_voltage"],
+            "-o",
+            color="tab:red",
+            markevery=0.01,
+            markerfacecolor="white",
+            label="After aging",
+        )
+        axis.plot(
+            discharge_time_last,
+            self.data_dict[last]["Discharge_voltage"],
+            "-o",
+            color="k",
+            markevery=0.01,
+            markerfacecolor="white",
+        )
+        axis.set_xlabel("Time (s)")
+        axis.set_ylabel("Potential (V)")
+        if legend:
+            axis.legend()

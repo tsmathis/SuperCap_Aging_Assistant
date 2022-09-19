@@ -10,7 +10,7 @@ class Eis:
         self.df = pd.read_table(file_name)
 
     def calc_eis_cap(self):
-        # important to convert Hz to rad/s
+        # Convert Hz to rad/s
         self.df["C''"] = self.df["Re(Z)/Ohm"] / (
             self.df["freq/Hz"] * 6.28 * self.df["|Z|/Ohm"] ** 2
         )
@@ -30,15 +30,18 @@ class Eis:
         if label:
             base.legend()
 
-        inset = figure.add_axes([0.55, 0.2, 0.3, 0.3])
-        inset.plot(x, y, "-o")
-        inset.set_xlim(0, max_axis * 0.015)
-        inset.set_ylim(0, max_axis * 0.015)
+        if len(figure.axes) > 1:
+            figure.axes[1].plot(x, y, "-o")
+        else:
+            figure.add_axes([0.55, 0.2, 0.3, 0.3])
+            figure.axes[1].plot(x, y, "-o")
+            figure.axes[1].set_xlim(0, max_axis * 0.015)
+            figure.axes[1].set_ylim(0, max_axis * 0.015)
 
         def enter_axes(event):
             if not event.inaxes:
                 return
-            if event.inaxes == inset:
+            if event.inaxes == figure.axes[1]:
                 base.set_navigate(False)
             elif event.inaxes == base:
                 base.set_navigate(True)
@@ -64,10 +67,12 @@ class Eis:
         axis.set_xscale("log")
         axis.set_xlabel("Freq. (Hz)")
         axis.set_ylabel("F/cm$^2$")
-        axis.legend()
+        if len(label) > 1:
+            axis.legend()
 
-    def plot_img_cap_vs_real_Z(self, axis, label=""):
+    def plot_img_cap_vs_real_Z(self, axis, label=None):
         axis.plot(self.df["Re(Z)/Ohm"], self.df["C''"] / self.area, "-o", label=label)
         axis.set_xlabel("Re(Z) ($\Omega$)")
         axis.set_ylabel("F/cm$^2$")
-        axis.legend()
+        if label:
+            axis.legend()
