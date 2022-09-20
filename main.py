@@ -1,4 +1,5 @@
 import sys, os, subprocess
+from collections import deque
 
 from aging_methods import AgingData
 from eis import Eis
@@ -8,10 +9,9 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from PyQt5.QtCore import Qt, pyqtSignal, QEvent
-from PyQt5.QtGui import QIcon, QFont, QColor, QPalette
+from PyQt5.QtGui import QIcon, QFont
 from PyQt5.QtWidgets import (
     QApplication,
-    QAction,
     QFileDialog,
     QMainWindow,
     QPushButton,
@@ -58,11 +58,10 @@ class ClickableWidget(MplCanvas):
 
 
 class SecondWindow(QMainWindow):
-    def __init__(
-        self, aging_data, cvs_before, cvs_after, eis_before, eis_after, mass, area
-    ):
+    def __init__(self, aging_data, cvs_before, cvs_after, eis_before, eis_after):
         super().__init__()
         self.setWindowTitle("SuperCap Aging")
+
         pagelayout = QHBoxLayout()
         button_layout = QGridLayout()
         self.stacklayout = QStackedLayout()
@@ -74,232 +73,121 @@ class SecondWindow(QMainWindow):
         buttons.setLayout(button_layout)
         buttons.setFixedWidth(350)
 
-        for i in range(6):
-            row = QWidget()
-            row.setMaximumSize(150, 150)
-            row.setMinimumSize(50, 50)
-            button_layout.addWidget(row, i, 1, 1, 1)
+        window_queue = deque(maxlen=12)
+
+        for i in range(12):
+            fig = MplCanvas()
+            fig_toolbar = NavigationToolbar(fig, self)
+            window = QWidget()
+            window_layout = QVBoxLayout()
+            window.setLayout(window_layout)
+            window_layout.addWidget(fig_toolbar)
+            window_layout.addWidget(fig)
+            self.stacklayout.addWidget(window)
+            window_queue.append(fig)
+
+        widget_slot_queue = deque(maxlen=12)
+
+        for i in range(12):
+            button = ClickableWidget(idx=i)
+            button.clicked.connect(self.change_activate_view)
+            button.setMaximumSize(150, 150)
+            button.setMinimumSize(50, 50)
+            if i % 2 == 0:
+                button_layout.addWidget(button, int(i / 2), 0, 1, 1)
+            else:
+                button_layout.addWidget(button, int(i / 2), 1, 1, 1)
+            widget_slot_queue.append(button)
 
         export = QPushButton("Export Data")
         export.setStyleSheet("background-color: #007AFF")
-        button_layout.addWidget(export, 6, 0, 1, 2)
+        button_layout.addWidget(export, 7, 0, 1, 2)
 
         pagelayout.addWidget(stack)
         pagelayout.addWidget(buttons)
 
-        aging = AgingData(mass=mass, area=area)
-        aging.read_data(aging_data)
-        aging.calc_cap_IR_drop()
-        aging.calc_Qirr()
+        if aging_data:
+            btn = widget_slot_queue.popleft()
+            aging_data.plot_IR_drop_cap_fade_vs_cycle(axis=btn.axes)
+            fig = window_queue.popleft()
+            aging_data.plot_IR_drop_cap_fade_vs_cycle(axis=fig.axes)
 
-        btn = ClickableWidget(idx=0)
-        aging.plot_IR_drop_cap_fade_vs_cycle(axis=btn.axes)
-        btn.setMaximumSize(150, 150)
-        btn.clicked.connect(self.change_activate_view)
-        button_layout.addWidget(btn, 0, 0, 1, 1)
+            btn2 = widget_slot_queue.popleft()
+            aging_data.plot_IR_drop_cap_fade_vs_qirr(axis=btn2.axes)
+            fig2 = window_queue.popleft()
+            aging_data.plot_IR_drop_cap_fade_vs_qirr(axis=fig2.axes)
 
-        fig = MplCanvas()
-        fig_toolbar = NavigationToolbar(fig, self)
-        aging.plot_IR_drop_cap_fade_vs_cycle(axis=fig.axes)
-        window = QWidget()
-        window_layout = QVBoxLayout()
-        window.setLayout(window_layout)
-        window_layout.addWidget(fig_toolbar)
-        window_layout.addWidget(fig)
-        self.stacklayout.addWidget(window)
+            btn3 = widget_slot_queue.popleft()
+            aging_data.plot_first_and_last_cycle(axis=btn3.axes)
+            fig3 = window_queue.popleft()
+            aging_data.plot_first_and_last_cycle(axis=fig3.axes, legend=1)
 
-        btn2 = ClickableWidget(idx=1)
-        aging.plot_IR_drop_cap_fade_vs_qirr(axis=btn2.axes)
-        btn2.setMaximumSize(150, 150)
-        btn2.clicked.connect(self.change_activate_view)
-        button_layout.addWidget(btn2, 0, 1, 1, 1)
+        if cvs_before and cvs_after:
+            for keyb, keya in zip(cvs_before, cvs_after):
+                btn = widget_slot_queue.popleft()
+                cvs_before[keyb].plot_cv_cap_current_density(axis=btn.axes)
+                cvs_after[keya].plot_cv_cap_current_density(axis=btn.axes)
 
-        fig2 = MplCanvas()
-        fig_toolbar = NavigationToolbar(fig2, self)
-        aging.plot_IR_drop_cap_fade_vs_qirr(axis=fig2.axes)
-        window2 = QWidget()
-        window_layout = QVBoxLayout()
-        window2.setLayout(window_layout)
-        window_layout.addWidget(fig_toolbar)
-        window_layout.addWidget(fig2)
-        self.stacklayout.addWidget(window2)
+                fig = window_queue.popleft()
+                cvs_before[keyb].plot_cv_cap_current_density(
+                    label="before aging", axis=fig.axes
+                )
+                cvs_after[keya].plot_cv_cap_current_density(
+                    label="after aging", axis=fig.axes
+                )
 
-        btn3 = ClickableWidget(idx=2)
-        aging.plot_first_and_last_cycle(axis=btn3.axes)
-        btn3.setMaximumSize(150, 150)
-        btn3.clicked.connect(self.change_activate_view)
-        button_layout.addWidget(btn3, 1, 0, 1, 1)
+        if eis_before and eis_after:
+            labels = ["OCV", "0.5 V", "1.0 V"]
+            for keyb, keya, label in zip(eis_before, eis_after, labels):
+                btn = widget_slot_queue.popleft()
+                eis_before[keyb].plot_caps_vs_freq(axis=btn.axes)
+                eis_after[keya].plot_caps_vs_freq(axis=btn.axes, color="k")
 
-        fig3 = MplCanvas()
-        fig_toolbar = NavigationToolbar(fig3, self)
-        aging.plot_first_and_last_cycle(axis=fig3.axes, legend=1)
-        window2 = QWidget()
-        window_layout = QVBoxLayout()
-        window2.setLayout(window_layout)
-        window_layout.addWidget(fig_toolbar)
-        window_layout.addWidget(fig3)
-        self.stacklayout.addWidget(window2)
+                fig = window_queue.popleft()
+                eis_before[keyb].plot_caps_vs_freq(
+                    label=f"{label} before aging", axis=fig.axes
+                )
+                eis_after[keya].plot_caps_vs_freq(
+                    label=f"{label} after aging", color="k", axis=fig.axes
+                )
 
-        rates = [5, 0.5]
-        cvs_b = {}
-        for idx, cv in enumerate(cvs_before):
-            cvs_b[idx] = CVs(rate=rates[idx], mass=mass)
-            cvs_b[idx].read_data(cv)
+        if eis_before:
+            btn = widget_slot_queue.popleft()
+            fig = window_queue.popleft()
 
-        cvs_a = {}
-        for idx, cv in enumerate(cvs_after):
-            cvs_a[idx] = CVs(rate=rates[idx], mass=mass)
-            cvs_a[idx].read_data(cv)
+            for key, label in zip(eis_before, labels):
+                eis_before[key].nyquist_plots(figure=btn.fig, axis=btn.axes)
+                eis_before[key].nyquist_plots(
+                    label=f"{label} before aging", figure=fig.fig, axis=fig.axes
+                )
 
-        pos = [(1, 1), (2, 0)]
+            btn = widget_slot_queue.popleft()
+            fig = window_queue.popleft()
 
-        i = 3
+            for key, label in zip(eis_before, labels):
+                eis_before[key].plot_img_cap_vs_real_Z(axis=btn.axes)
+                eis_before[key].plot_img_cap_vs_real_Z(
+                    label=f"{label} before aging", axis=fig.axes
+                )
 
-        for keyb, keya, p in zip(cvs_b, cvs_a, pos):
-            btn = ClickableWidget(idx=i)
+        if eis_after:
+            btn = widget_slot_queue.popleft()
+            fig = window_queue.popleft()
 
-            cvs_b[keyb].plot_cv_cap_current_density(axis=btn.axes)
-            cvs_a[keya].plot_cv_cap_current_density(axis=btn.axes)
+            for key, label in zip(eis_after, labels):
+                eis_after[key].nyquist_plots(figure=btn.fig, axis=btn.axes)
+                eis_after[key].nyquist_plots(
+                    label=f"{label} after aging", figure=fig.fig, axis=fig.axes
+                )
 
-            btn.setMaximumSize(150, 150)
-            btn.clicked.connect(self.change_activate_view)
-            button_layout.addWidget(btn, p[0], p[1], 1, 1)
+            btn = widget_slot_queue.popleft()
+            fig = window_queue.popleft()
 
-            fig = MplCanvas()
-            fig_toolbar = NavigationToolbar(fig, self)
-            cvs_b[keyb].plot_cv_cap_current_density(label="before aging", axis=fig.axes)
-            cvs_a[keya].plot_cv_cap_current_density(label="after aging", axis=fig.axes)
-            window = QWidget()
-            window_layout = QVBoxLayout()
-            window.setLayout(window_layout)
-            window_layout.addWidget(fig_toolbar)
-            window_layout.addWidget(fig)
-            self.stacklayout.addWidget(window)
-            i += 1
-
-        eis_b = {}
-        for idx, eis in enumerate(eis_before):
-            eis_b[idx] = Eis(area=area)
-            eis_b[idx].read_data(eis)
-            eis_b[idx].calc_eis_cap()
-
-        eis_a = {}
-        for idx, eis in enumerate(eis_after):
-            eis_a[idx] = Eis(area=area)
-            eis_a[idx].read_data(eis)
-            eis_a[idx].calc_eis_cap()
-
-        labels = ["OCV", "0.5 V", "1.0 V"]
-        pairs = [(2, 1), (3, 0), (3, 1)]
-
-        for keyb, keya, label, pair in zip(eis_b, eis_a, labels, pairs):
-            btn = ClickableWidget(idx=i)
-            eis_b[keyb].plot_caps_vs_freq(axis=btn.axes)
-            eis_a[keya].plot_caps_vs_freq(axis=btn.axes, color="k")
-            btn.setMaximumSize(150, 150)
-            btn.clicked.connect(self.change_activate_view)
-            button_layout.addWidget(btn, pair[0], pair[1], 1, 1)
-
-            fig = MplCanvas()
-            fig_toolbar = NavigationToolbar(fig, self)
-            eis_b[keyb].plot_caps_vs_freq(label=f"{label} before aging", axis=fig.axes)
-            eis_a[keya].plot_caps_vs_freq(
-                label=f"{label} after aging", color="k", axis=fig.axes
-            )
-            window = QWidget()
-            window_layout = QVBoxLayout()
-            window.setLayout(window_layout)
-            window_layout.addWidget(fig_toolbar)
-            window_layout.addWidget(fig)
-            self.stacklayout.addWidget(window)
-            i += 1
-
-        btn = ClickableWidget(idx=i)
-        btn.setMaximumSize(150, 150)
-        btn.clicked.connect(self.change_activate_view)
-
-        fig = MplCanvas()
-        fig_toolbar = NavigationToolbar(fig, self)
-
-        for key, label in zip(eis_b, labels):
-            eis_b[key].nyquist_plots(figure=btn.fig, axis=btn.axes)
-            eis_b[key].nyquist_plots(
-                label=f"{label} before aging", figure=fig.fig, axis=fig.axes
-            )
-
-        window = QWidget()
-        window_layout = QVBoxLayout()
-        window.setLayout(window_layout)
-        button_layout.addWidget(btn, 4, 0, 1, 1)
-        window_layout.addWidget(fig_toolbar)
-        window_layout.addWidget(fig)
-        self.stacklayout.addWidget(window)
-
-        i += 1
-        btn = ClickableWidget(idx=i)
-        btn.setMaximumSize(150, 150)
-        btn.clicked.connect(self.change_activate_view)
-
-        fig = MplCanvas()
-        fig_toolbar = NavigationToolbar(fig, self)
-
-        for key, label in zip(eis_a, labels):
-            eis_a[key].nyquist_plots(figure=btn.fig, axis=btn.axes)
-            eis_a[key].nyquist_plots(
-                label=f"{label} after aging", figure=fig.fig, axis=fig.axes
-            )
-
-        window = QWidget()
-        window_layout = QVBoxLayout()
-        window.setLayout(window_layout)
-        button_layout.addWidget(btn, 4, 1, 1, 1)
-        window_layout.addWidget(fig_toolbar)
-        window_layout.addWidget(fig)
-        self.stacklayout.addWidget(window)
-
-        i += 1
-        btn = ClickableWidget(idx=i)
-        btn.setMaximumSize(150, 150)
-        btn.clicked.connect(self.change_activate_view)
-
-        fig = MplCanvas()
-        fig_toolbar = NavigationToolbar(fig, self)
-
-        for key, label in zip(eis_b, labels):
-            eis_b[key].plot_img_cap_vs_real_Z(axis=btn.axes)
-            eis_b[key].plot_img_cap_vs_real_Z(
-                label=f"{label} before aging", axis=fig.axes
-            )
-
-        window = QWidget()
-        window_layout = QVBoxLayout()
-        window.setLayout(window_layout)
-        button_layout.addWidget(btn, 5, 0, 1, 1)
-        window_layout.addWidget(fig_toolbar)
-        window_layout.addWidget(fig)
-        self.stacklayout.addWidget(window)
-
-        i += 1
-        btn = ClickableWidget(idx=i)
-        btn.setMaximumSize(150, 150)
-        btn.clicked.connect(self.change_activate_view)
-
-        fig = MplCanvas()
-        fig_toolbar = NavigationToolbar(fig, self)
-
-        for key, label in zip(eis_a, labels):
-            eis_a[key].plot_img_cap_vs_real_Z(axis=btn.axes)
-            eis_a[key].plot_img_cap_vs_real_Z(
-                label=f"{label} after aging", axis=fig.axes
-            )
-
-        window = QWidget()
-        window_layout = QVBoxLayout()
-        window.setLayout(window_layout)
-        button_layout.addWidget(btn, 5, 1, 1, 1)
-        window_layout.addWidget(fig_toolbar)
-        window_layout.addWidget(fig)
-        self.stacklayout.addWidget(window)
+            for key, label in zip(eis_after, labels):
+                eis_after[key].plot_img_cap_vs_real_Z(axis=btn.axes)
+                eis_after[key].plot_img_cap_vs_real_Z(
+                    label=f"{label} after aging", axis=fig.axes
+                )
 
         widget = QWidget()
         widget.setLayout(pagelayout)
@@ -540,42 +428,101 @@ class MainWindow(QMainWindow):
         filename, _ = QFileDialog.getOpenFileName(filter=filters)
         widget.setText(filename)
 
+    def calc_aging_data(self, file, mass, area):
+        if len(file) == 0:
+            return None
+        aging = AgingData(mass=mass, area=area)
+        aging.read_data(file)
+        aging.calc_cap_IR_drop()
+        aging.calc_Qirr()
+        return aging
+
+    def calc_cv_data_before_aging(self, file_list, mass):
+        rates = [5, 0.5]
+        cvs_before = {}
+        for idx, cv in enumerate(file_list):
+            if len(cv) == 0:
+                continue
+            cvs_before[rates[idx]] = CVs(rate=rates[idx], mass=mass)
+            cvs_before[rates[idx]].read_data(cv)
+        return cvs_before
+
+    def calc_cv_data_after_aging(self, file_list, mass):
+        rates = [5, 0.5]
+        cvs_after = {}
+        for idx, cv in enumerate(file_list):
+            if len(cv) == 0:
+                continue
+            cvs_after[rates[idx]] = CVs(rate=rates[idx], mass=mass)
+            cvs_after[rates[idx]].read_data(cv)
+        return cvs_after
+
+    def calc_eis_data_before_aging(self, file_list, area):
+        labels = ["OCV", "0.5 V", "1.0 V"]
+        eis_before = {}
+        for idx, eis in enumerate(file_list):
+            if len(eis) == 0:
+                continue
+            eis_before[labels[idx]] = Eis(area=area)
+            eis_before[labels[idx]].read_data(eis)
+            eis_before[labels[idx]].calc_eis_cap()
+        return eis_before
+
+    def calc_eis_data_after_aging(self, file_list, area):
+        labels = ["OCV", "0.5 V", "1.0 V"]
+        eis_after = {}
+        for idx, eis in enumerate(file_list):
+            if len(eis) == 0:
+                continue
+            eis_after[labels[idx]] = Eis(area=area)
+            eis_after[labels[idx]].read_data(eis)
+            eis_after[labels[idx]].calc_eis_cap()
+        return eis_after
+
     def show_data_window(self):
-        aging_data = self.aging_data_display.text()
-        cvs_before = [
+        mass = float(self.mass_entry.text())
+        area = float(self.area_entry.text())
+
+        aging_file = self.aging_data_display.text()
+
+        cvs_before_files = [
             self.cvs_five_before_display.text(),
             self.cvs_p_5_before_display.text(),
         ]
-        cvs_after = [
+        cvs_after_files = [
             self.cvs_five_after_display.text(),
             self.cvs_p_5_after_display.text(),
         ]
-        eis_before = [
+
+        eis_before_files = [
             self.eis_ocv_before_display.text(),
             self.eis_p_5V_before_display.text(),
             self.eis_one_V_before_display.text(),
         ]
-        eis_after = [
+        eis_after_files = [
             self.eis_ocv_after_display.text(),
             self.eis_p_5V_after_display.text(),
             self.eis_one_V_after_display.text(),
         ]
 
         self.data_window = SecondWindow(
-            aging_data=aging_data,
-            cvs_before=cvs_before,
-            cvs_after=cvs_after,
-            eis_before=eis_before,
-            eis_after=eis_after,
-            mass=float(self.mass_entry.text()),
-            area=float(self.area_entry.text()),
+            aging_data=self.calc_aging_data(file=aging_file, mass=mass, area=area),
+            cvs_before=self.calc_cv_data_before_aging(
+                file_list=cvs_before_files, mass=mass
+            ),
+            cvs_after=self.calc_cv_data_after_aging(
+                file_list=cvs_after_files, mass=mass
+            ),
+            eis_before=self.calc_eis_data_before_aging(
+                file_list=eis_before_files, area=area
+            ),
+            eis_after=self.calc_eis_data_after_aging(
+                file_list=eis_after_files, area=area
+            ),
         )
 
         self.close()
         self.data_window.showMaximized()
-
-    def calc_data(self):
-        pass
 
 
 def main():
