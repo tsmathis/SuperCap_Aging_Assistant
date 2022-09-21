@@ -65,6 +65,12 @@ class SecondWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("SuperCap Aging")
 
+        self.aging_data = aging_data
+        self.cvs_before = cvs_before
+        self.cvs_after = cvs_after
+        self.eis_before = eis_before
+        self.eis_after = eis_after
+
         pagelayout = QHBoxLayout()
         button_layout = QGridLayout()
         self.stacklayout = QStackedLayout()
@@ -110,86 +116,88 @@ class SecondWindow(QMainWindow):
         pagelayout.addWidget(stack)
         pagelayout.addWidget(buttons)
 
-        if aging_data:
+        if self.aging_data:
+            self.aging_data.prep_data()
             btn = widget_slot_queue.popleft()
-            aging_data.plot_IR_drop_cap_fade_vs_cycle(axis=btn.axes)
+            self.aging_data.plot_IR_drop_cap_fade_vs_cycle(axis=btn.axes)
             fig = window_queue.popleft()
-            aging_data.plot_IR_drop_cap_fade_vs_cycle(axis=fig.axes)
+            self.aging_data.plot_IR_drop_cap_fade_vs_cycle(axis=fig.axes)
 
             btn2 = widget_slot_queue.popleft()
-            aging_data.plot_IR_drop_cap_fade_vs_qirr(axis=btn2.axes)
+            self.aging_data.plot_IR_drop_cap_fade_vs_qirr(axis=btn2.axes)
             fig2 = window_queue.popleft()
-            aging_data.plot_IR_drop_cap_fade_vs_qirr(axis=fig2.axes)
+            self.aging_data.plot_IR_drop_cap_fade_vs_qirr(axis=fig2.axes)
 
             btn3 = widget_slot_queue.popleft()
-            aging_data.plot_first_and_last_cycle(axis=btn3.axes)
+            self.aging_data.plot_first_and_last_cycle(axis=btn3.axes)
             fig3 = window_queue.popleft()
-            aging_data.plot_first_and_last_cycle(axis=fig3.axes, legend=1)
+            self.aging_data.plot_first_and_last_cycle(axis=fig3.axes, legend=1)
+            self.aging_data.prep_export()
 
-        if cvs_before and cvs_after:
-            for keyb, keya in zip(cvs_before, cvs_after):
+        if self.cvs_before and self.cvs_after:
+            for keyb, keya in zip(self.cvs_before, self.cvs_after):
                 btn = widget_slot_queue.popleft()
-                cvs_before[keyb].plot_cv_cap_current_density(axis=btn.axes)
-                cvs_after[keya].plot_cv_cap_current_density(axis=btn.axes)
+                self.cvs_before[keyb].plot_cv_cap_current_density(axis=btn.axes)
+                self.cvs_after[keya].plot_cv_cap_current_density(axis=btn.axes)
 
                 fig = window_queue.popleft()
-                cvs_before[keyb].plot_cv_cap_current_density(
+                self.cvs_before[keyb].plot_cv_cap_current_density(
                     label="before aging", axis=fig.axes
                 )
-                cvs_after[keya].plot_cv_cap_current_density(
+                self.cvs_after[keya].plot_cv_cap_current_density(
                     label="after aging", axis=fig.axes
                 )
 
-        if eis_before and eis_after:
+        if self.eis_before and self.eis_after:
             labels = ["OCV", "0.5 V", "1.0 V"]
-            for keyb, keya, label in zip(eis_before, eis_after, labels):
+            for keyb, keya, label in zip(self.eis_before, self.eis_after, labels):
                 btn = widget_slot_queue.popleft()
-                eis_before[keyb].plot_caps_vs_freq(axis=btn.axes)
-                eis_after[keya].plot_caps_vs_freq(axis=btn.axes, color="k")
+                self.eis_before[keyb].plot_caps_vs_freq(axis=btn.axes)
+                self.eis_after[keya].plot_caps_vs_freq(axis=btn.axes, color="k")
 
                 fig = window_queue.popleft()
-                eis_before[keyb].plot_caps_vs_freq(
+                self.eis_before[keyb].plot_caps_vs_freq(
                     label=f"{label} before aging", axis=fig.axes
                 )
-                eis_after[keya].plot_caps_vs_freq(
+                self.eis_after[keya].plot_caps_vs_freq(
                     label=f"{label} after aging", color="k", axis=fig.axes
                 )
 
-        if eis_before:
+        if self.eis_before:
             btn = widget_slot_queue.popleft()
             fig = window_queue.popleft()
 
-            for key, label in zip(eis_before, labels):
-                eis_before[key].nyquist_plots(figure=btn.fig, axis=btn.axes)
-                eis_before[key].nyquist_plots(
+            for key, label in zip(self.eis_before, labels):
+                self.eis_before[key].nyquist_plots(figure=btn.fig, axis=btn.axes)
+                self.eis_before[key].nyquist_plots(
                     label=f"{label} before aging", figure=fig.fig, axis=fig.axes
                 )
 
             btn = widget_slot_queue.popleft()
             fig = window_queue.popleft()
 
-            for key, label in zip(eis_before, labels):
-                eis_before[key].plot_img_cap_vs_real_Z(axis=btn.axes)
-                eis_before[key].plot_img_cap_vs_real_Z(
+            for key, label in zip(self.eis_before, labels):
+                self.eis_before[key].plot_img_cap_vs_real_Z(axis=btn.axes)
+                self.eis_before[key].plot_img_cap_vs_real_Z(
                     label=f"{label} before aging", axis=fig.axes
                 )
 
-        if eis_after:
+        if self.eis_after:
             btn = widget_slot_queue.popleft()
             fig = window_queue.popleft()
 
-            for key, label in zip(eis_after, labels):
-                eis_after[key].nyquist_plots(figure=btn.fig, axis=btn.axes)
-                eis_after[key].nyquist_plots(
+            for key, label in zip(self.eis_after, labels):
+                self.eis_after[key].nyquist_plots(figure=btn.fig, axis=btn.axes)
+                self.eis_after[key].nyquist_plots(
                     label=f"{label} after aging", figure=fig.fig, axis=fig.axes
                 )
 
             btn = widget_slot_queue.popleft()
             fig = window_queue.popleft()
 
-            for key, label in zip(eis_after, labels):
-                eis_after[key].plot_img_cap_vs_real_Z(axis=btn.axes)
-                eis_after[key].plot_img_cap_vs_real_Z(
+            for key, label in zip(self.eis_after, labels):
+                self.eis_after[key].plot_img_cap_vs_real_Z(axis=btn.axes)
+                self.eis_after[key].plot_img_cap_vs_real_Z(
                     label=f"{label} after aging", axis=fig.axes
                 )
 
@@ -200,39 +208,25 @@ class SecondWindow(QMainWindow):
     def change_activate_view(self, clicked):
         self.stacklayout.setCurrentIndex(clicked)
 
-    #  need to implement fully
     def get_export_location(self):
-        dialog = QFileDialog()
-        folder_path = dialog.getExistingDirectory(None, "", directory="")
-        if not folder_path:
+        file_name, filters = QFileDialog.getSaveFileName(self, filter="Excel (*.xlsx)")
+        if not file_name:
             return
-        if folder_path:
-            if os.path.exists(folder_path + "/"):
-                write_confirmed = QMessageBox.question(
-                    self,
-                    "Overwrite file?",
-                    (
-                        textwrap.dedent(
-                            f"""\
-                                The files:  already exist.
-                                Are you sure you want to overwrite them?"""
-                        )
-                    ),
-                )
-                if write_confirmed == QMessageBox.No:
-                    return
-            else:
-                write_confirmed = True
-
-        if write_confirmed:
-            export_data(destination=folder_path + "/")
+        export_data(
+            file_name=file_name,
+            aging_data=self.aging_data,
+            cvs_before=self.cvs_before,
+            cvs_after=self.cvs_after,
+            eis_before=self.eis_before,
+            eis_after=self.eis_after,
+        )
 
 
 class MainWindow(QMainWindow):
     def __init__(self, parent=None) -> None:
         super(MainWindow, self).__init__(parent)
 
-        self.setWindowTitle("Data Import")
+        self.setWindowTitle("SuperCap Aging: Data Import")
         self.setMaximumWidth(1200)
         self.page_layout = QVBoxLayout()
 
@@ -466,6 +460,9 @@ class MainWindow(QMainWindow):
         aging.read_data(file)
         aging.calc_cap_IR_drop()
         aging.calc_Qirr()
+        aging.get_leakage_current()
+        aging.get_cap_decrease()
+        aging.get_resist_increase()
         return aging
 
     def calc_cv_data_before_aging(self, file_list, mass):
@@ -475,7 +472,8 @@ class MainWindow(QMainWindow):
             if len(cv) == 0:
                 continue
             cvs_before[rates[idx]] = CVs(rate=rates[idx], mass=mass)
-            cvs_before[rates[idx]].read_data(cv)
+            cvs_before[rates[idx]].read_prep_data(cv)
+            cvs_before[rates[idx]].prep_export()
         return cvs_before
 
     def calc_cv_data_after_aging(self, file_list, mass):
@@ -485,7 +483,8 @@ class MainWindow(QMainWindow):
             if len(cv) == 0:
                 continue
             cvs_after[rates[idx]] = CVs(rate=rates[idx], mass=mass)
-            cvs_after[rates[idx]].read_data(cv)
+            cvs_after[rates[idx]].read_prep_data(cv)
+            cvs_after[rates[idx]].prep_export()
         return cvs_after
 
     def calc_eis_data_before_aging(self, file_list, area):
@@ -497,6 +496,7 @@ class MainWindow(QMainWindow):
             eis_before[labels[idx]] = Eis(area=area)
             eis_before[labels[idx]].read_data(eis)
             eis_before[labels[idx]].calc_eis_cap()
+            eis_before[labels[idx]].prep_export()
         return eis_before
 
     def calc_eis_data_after_aging(self, file_list, area):
@@ -508,6 +508,7 @@ class MainWindow(QMainWindow):
             eis_after[labels[idx]] = Eis(area=area)
             eis_after[labels[idx]].read_data(eis)
             eis_after[labels[idx]].calc_eis_cap()
+            eis_after[labels[idx]].prep_export()
         return eis_after
 
     def show_data_window(self):

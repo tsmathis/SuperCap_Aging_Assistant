@@ -125,88 +125,104 @@ class AgingData:
             for key in self.data_dict
         ]
 
+    def prep_data(self):
+        self.aging_cycles = [cycle / 6 for cycle in self.data_dict]
+        self.IR_drop = [self.data_dict[cycle]["IR drop"] for cycle in self.data_dict]
+        self.discharge_cap = [
+            self.data_dict[cycle]["Discharge_cap"] for cycle in self.data_dict
+        ]
+        self.charge_cap = [
+            self.data_dict[cycle]["Charge_cap"] for cycle in self.data_dict
+        ]
+
     def plot_IR_drop_cap_fade_vs_cycle(self, axis):
-        x = []
-        y_IR = []
-        y_cap = []
-        for cycle in self.data_dict:
-            x.append(cycle / 6)
-            y_IR.append(self.data_dict[cycle]["IR drop"])
-            y_cap.append(self.data_dict[cycle]["Discharge_cap"])
+        # x = []
+        # y_IR = []
+        # y_cap = []
+        # for cycle in self.data_dict:
+        #     x.append(cycle / 6)
+        #     y_IR.append(self.data_dict[cycle]["IR drop"])
+        #     y_cap.append(self.data_dict[cycle]["Discharge_cap"])
 
         ax2 = axis.twinx()
-        axis.plot(x, y_cap, "-o", color="tab:red")
+
+        axis.plot(self.aging_cycles, self.discharge_cap, "-o", color="tab:red")
         axis.spines["left"].set_color("tab:red")
         axis.tick_params(axis="y", colors="tab:red")
         axis.yaxis.label.set_color("tab:red")
-        ax2.plot(x, y_IR, "-o", color="tab:blue")
+
+        ax2.plot(self.aging_cycles, self.IR_drop, "-o", color="tab:blue")
         ax2.spines["right"].set_color("tab:blue")
         ax2.tick_params(axis="y", colors="tab:blue")
         ax2.yaxis.label.set_color("tab:blue")
+
         axis.set_xlabel("Aging Cycle #")
         axis.set_ylabel("Capacitance (F/g)")
         ax2.set_ylabel("IR Drop ($\Omega$.cm$^2$)", rotation=270, va="bottom")
 
     def plot_IR_drop_cap_fade_vs_qirr(self, axis):
         x = self.total_qirr
-        y_IR = []
-        y_cap = []
-        for cycle in self.data_dict:
-            y_IR.append(self.data_dict[cycle]["IR drop"])
-            y_cap.append(self.data_dict[cycle]["Discharge_cap"])
+        # y_IR = []
+        # y_cap = []
+        # for cycle in self.data_dict:
+        #     y_IR.append(self.data_dict[cycle]["IR drop"])
+        #     y_cap.append(self.data_dict[cycle]["Discharge_cap"])
 
         ax2 = axis.twinx()
-        axis.plot(x, y_cap, "-o", color="tab:red")
+
+        axis.plot(x, self.discharge_cap, "-o", color="tab:red")
         axis.spines["left"].set_color("tab:red")
         axis.tick_params(axis="y", colors="tab:red")
         axis.yaxis.label.set_color("tab:red")
-        ax2.plot(x, y_IR, "-o", color="tab:blue")
+
+        ax2.plot(x, self.IR_drop, "-o", color="tab:blue")
         ax2.spines["right"].set_color("tab:blue")
         ax2.tick_params(axis="y", colors="tab:blue")
         ax2.yaxis.label.set_color("tab:blue")
+
         axis.set_xlabel("Qirr (mAh)")
         axis.set_ylabel("Capacitance (F/g)")
         ax2.set_ylabel("IR Drop ($\Omega$.cm$^2$)", rotation=270, va="bottom")
 
     def plot_first_and_last_cycle(self, axis, legend=None):
         keys = list(self.data_dict.keys())
-        first, last = keys[0], keys[-1]
+        self.first, self.last = keys[0], keys[-1]
 
-        charge_time_first = (
-            self.data_dict[first]["Charge_time"]
-            - self.data_dict[first]["Charge_time"].iloc[0]
+        self.charge_time_first = (
+            self.data_dict[self.first]["Charge_time"]
+            - self.data_dict[self.first]["Charge_time"].iloc[0]
         )
-        discharge_time_first = (
-            self.data_dict[first]["Discharge_time"]
-            - self.data_dict[first]["Charge_time"].iloc[0]
+        self.discharge_time_first = (
+            self.data_dict[self.first]["Discharge_time"]
+            - self.data_dict[self.first]["Charge_time"].iloc[0]
         )
-        charge_time_last = (
-            self.data_dict[last]["Charge_time"]
-            - self.data_dict[last]["Charge_time"].iloc[0]
+        self.charge_time_last = (
+            self.data_dict[self.last]["Charge_time"]
+            - self.data_dict[self.last]["Charge_time"].iloc[0]
         )
-        discharge_time_last = (
-            self.data_dict[last]["Discharge_time"]
-            - self.data_dict[last]["Charge_time"].iloc[0]
+        self.discharge_time_last = (
+            self.data_dict[self.last]["Discharge_time"]
+            - self.data_dict[self.last]["Charge_time"].iloc[0]
         )
 
         axis.plot(
-            charge_time_first,
-            self.data_dict[first]["Charge_voltage"],
+            self.charge_time_first,
+            self.data_dict[self.first]["Charge_voltage"],
             "-o",
             color="tab:red",
             markevery=0.01,
             label="Before first aging cycle",
         )
         axis.plot(
-            discharge_time_first,
-            self.data_dict[first]["Discharge_voltage"],
+            self.discharge_time_first,
+            self.data_dict[self.first]["Discharge_voltage"],
             "-o",
             color="k",
             markevery=0.01,
         )
         axis.plot(
-            charge_time_last,
-            self.data_dict[last]["Charge_voltage"],
+            self.charge_time_last,
+            self.data_dict[self.last]["Charge_voltage"],
             "-o",
             color="tab:red",
             markevery=0.01,
@@ -214,8 +230,8 @@ class AgingData:
             label="After aging",
         )
         axis.plot(
-            discharge_time_last,
-            self.data_dict[last]["Discharge_voltage"],
+            self.discharge_time_last,
+            self.data_dict[self.last]["Discharge_voltage"],
             "-o",
             color="k",
             markevery=0.01,
@@ -225,3 +241,40 @@ class AgingData:
         axis.set_ylabel("Potential (V)")
         if legend:
             axis.legend()
+
+    def prep_export(self):
+        self.ccd_curves = pd.DataFrame(
+            {
+                "First cycle charge time (s)": self.charge_time_first,
+                "First cycle charge voltage (V)": self.data_dict[self.first][
+                    "Charge_voltage"
+                ],
+                "First cycle discharge time (s)": self.discharge_time_first,
+                "First cycle discharge voltage (V)": self.data_dict[self.first][
+                    "Discharge_voltage"
+                ],
+                "Last cycle charge time (s)": self.charge_time_last,
+                "Last cycle charge voltage (V)": self.data_dict[self.last][
+                    "Charge_voltage"
+                ],
+                "Last cycle discharge time (s)": self.discharge_time_last,
+                "Last cycle discharge voltage (V)": self.data_dict[self.last][
+                    "Discharge_voltage"
+                ],
+            }
+        )
+
+        self.ccd_curves = self.ccd_curves.apply(lambda x: pd.Series(x.dropna().values))
+
+        self.aging_df = pd.DataFrame(
+            {
+                "Aging Cycles": self.aging_cycles,
+                "Qirr (mAh)": [val for val in self.qirr_dict.values()],
+                "Qirr total (mAh)": self.total_qirr,
+                "Discharge Capacitance (F/g)": self.discharge_cap,
+                "Discharge cap decrease (%)": self.cap_decrease,
+                "Charge Capacitance (F/g)": self.charge_cap,
+                "IR drop ($\Omega$)": self.IR_drop,
+                "IR drop increase (%)": self.resist_increase,
+            }
+        )
