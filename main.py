@@ -1,9 +1,11 @@
 import sys, os, subprocess
+import textwrap
 from collections import deque
 
 from aging_methods import AgingData
 from eis import Eis
 from cvs import CVs
+from data_export import export_data
 
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
@@ -24,6 +26,7 @@ from PyQt5.QtWidgets import (
     QWidget,
     QFrame,
     QLineEdit,
+    QMessageBox,
 )
 
 if hasattr(Qt, "AA_EnableHighDpiScaling"):
@@ -101,6 +104,7 @@ class SecondWindow(QMainWindow):
 
         export = QPushButton("Export Data")
         export.setStyleSheet("background-color: #007AFF")
+        export.clicked.connect(self.get_export_location)
         button_layout.addWidget(export, 7, 0, 1, 2)
 
         pagelayout.addWidget(stack)
@@ -195,6 +199,33 @@ class SecondWindow(QMainWindow):
 
     def change_activate_view(self, clicked):
         self.stacklayout.setCurrentIndex(clicked)
+
+    #  need to implement fully
+    def get_export_location(self):
+        dialog = QFileDialog()
+        folder_path = dialog.getExistingDirectory(None, "", directory="")
+        if not folder_path:
+            return
+        if folder_path:
+            if os.path.exists(folder_path + "/"):
+                write_confirmed = QMessageBox.question(
+                    self,
+                    "Overwrite file?",
+                    (
+                        textwrap.dedent(
+                            f"""\
+                                The files:  already exist.
+                                Are you sure you want to overwrite them?"""
+                        )
+                    ),
+                )
+                if write_confirmed == QMessageBox.No:
+                    return
+            else:
+                write_confirmed = True
+
+        if write_confirmed:
+            export_data(destination=folder_path + "/")
 
 
 class MainWindow(QMainWindow):
