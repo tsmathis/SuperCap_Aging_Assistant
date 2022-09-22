@@ -36,8 +36,8 @@ class AgingData:
 
         for cycle in cycle_num:
             current_zero_val = (
-                cycles_to_process.query("CycleNo == @cycle")["Current/mA"].iloc[0]
-                / 1000
+                cycles_to_process.query("CycleNo == @cycle")["Current/uA"].iloc[0]
+                / 1000000
             )
 
             self.data_dict[cycle]["Charge_time"] = cycles_to_process.query(
@@ -89,12 +89,12 @@ class AgingData:
         for idx, cycle in enumerate(cycles):
             self.qirr_dict[idx + 1] = abs(
                 np.mean(
-                    floating_data.query("CycleNo == @cycle")["Current/mA"][::10]
+                    floating_data.query("CycleNo == @cycle")["Current/uA"][::10]
                     * self.resample_time(
                         floating_data.query("CycleNo == @cycle")["TestTime/Sec"][::10]
                     )
                 )
-                / 3600
+                / 3.6e6
             )
 
         self.total_qirr = list(accumulate(self.qirr_dict.values()))
@@ -104,8 +104,7 @@ class AgingData:
         cycles = floating_data["CycleNo"].unique()
         self.leakage_current = [
             round(
-                np.mean(floating_data.query("CycleNo == @cycle")["Current/mA"][-100:])
-                * 1000,
+                np.mean(floating_data.query("CycleNo == @cycle")["Current/uA"][-100:]),
                 2,
             )
             for cycle in cycles
@@ -136,14 +135,6 @@ class AgingData:
         ]
 
     def plot_IR_drop_cap_fade_vs_cycle(self, axis):
-        # x = []
-        # y_IR = []
-        # y_cap = []
-        # for cycle in self.data_dict:
-        #     x.append(cycle / 6)
-        #     y_IR.append(self.data_dict[cycle]["IR drop"])
-        #     y_cap.append(self.data_dict[cycle]["Discharge_cap"])
-
         ax2 = axis.twinx()
 
         axis.plot(self.aging_cycles, self.discharge_cap, "-o", color="tab:red")
@@ -162,12 +153,6 @@ class AgingData:
 
     def plot_IR_drop_cap_fade_vs_qirr(self, axis):
         x = self.total_qirr
-        # y_IR = []
-        # y_cap = []
-        # for cycle in self.data_dict:
-        #     y_IR.append(self.data_dict[cycle]["IR drop"])
-        #     y_cap.append(self.data_dict[cycle]["Discharge_cap"])
-
         ax2 = axis.twinx()
 
         axis.plot(x, self.discharge_cap, "-o", color="tab:red")
@@ -276,5 +261,6 @@ class AgingData:
                 "Charge Capacitance (F/g)": self.charge_cap,
                 "IR drop ($\Omega$)": self.IR_drop,
                 "IR drop increase (%)": self.resist_increase,
+                "Leakage Current uA": self.get_leakage_current,
             }
         )
