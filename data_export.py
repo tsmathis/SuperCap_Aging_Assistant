@@ -15,10 +15,10 @@ def export_data(
     if aging_data:
 
         values = [aging_data.ccd_curves.columns] + list(aging_data.ccd_curves.values)
-        export_wb.new_sheet(f"Aging Data CCD curves", data=values)
+        export_wb.new_sheet("Aging Data CCD curves", data=values)
 
         values2 = [aging_data.aging_df.columns] + list(aging_data.aging_df.values)
-        export_wb.new_sheet(f"Aging Data", data=values2)
+        export_wb.new_sheet("Aging Data", data=values2)
 
     if cvs_before:
         for key in cvs_before:

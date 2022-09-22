@@ -1,9 +1,13 @@
+import re
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
 from collections import Counter
 from itertools import accumulate
+
+cycle_match = "(?i)Cycle"
+status_match = "(?i)StepStatus|Step-State"
 
 
 class AgingData:
@@ -13,6 +17,8 @@ class AgingData:
 
     def read_data(self, file_name):
         self.df = pd.read_csv(file_name)
+        self.cycle_col = str([col for col in self.df if re.search(cycle_match, col)][0])
+        self.status_col = [col for col in self.df if re.search(status_match, col)][0]
 
     def resample_time(self, time_series):
         """"""
@@ -26,32 +32,44 @@ class AgingData:
 
     def calc_cap_IR_drop(self):
         """"""
-        cycles_to_process = self.df.query("CycleNo % 6 == 0").reset_index(drop=True)
+        cycles_to_process = self.df.query(
+            "`{0}` % 6 == 0".format(self.cycle_col)
+        ).reset_index(drop=True)
         cycles_to_process["Fixed_time"] = self.resample_time(
             cycles_to_process["TestTime/Sec"]
         )
 
-        cycle_num = cycles_to_process["CycleNo"].unique()
+        cycle_num = cycles_to_process[self.cycle_col].unique()
         self.data_dict = {cycle: {} for cycle in cycle_num}
 
         for cycle in cycle_num:
             current_zero_val = (
-                cycles_to_process.query("CycleNo == @cycle")["Current/uA"].iloc[0]
+                cycles_to_process.query("`{0}` == @cycle".format(self.cycle_col))[
+                    "Current/uA"
+                ].iloc[0]
                 / 1000000
             )
 
             self.data_dict[cycle]["Charge_time"] = cycles_to_process.query(
-                "CycleNo == @cycle & StepStatus == 'CCC'"
+                "`{0}` == @cycle & `{1}` == 'CCC'".format(
+                    self.cycle_col, self.status_col
+                )
             )["Fixed_time"]
             self.data_dict[cycle]["Charge_voltage"] = cycles_to_process.query(
-                "CycleNo == @cycle & StepStatus == 'CCC'"
+                "`{0}` == @cycle & `{1}` == 'CCC'".format(
+                    self.cycle_col, self.status_col
+                )
             )["Voltage/V"]
 
             self.data_dict[cycle]["Discharge_time"] = cycles_to_process.query(
-                "CycleNo == @cycle & StepStatus == 'CCD'"
+                "`{0}` == @cycle & `{1}` == 'CCD'".format(
+                    self.cycle_col, self.status_col
+                )
             )["Fixed_time"]
             self.data_dict[cycle]["Discharge_voltage"] = cycles_to_process.query(
-                "CycleNo == @cycle & StepStatus == 'CCD'"
+                "`{0}` == @cycle & `{1}` == 'CCD'".format(
+                    self.cycle_col, self.status_col
+                )
             )["Voltage/V"]
 
             self.data_dict[cycle]["IR drop"] = (
@@ -82,16 +100,20 @@ class AgingData:
             ) / self.mass
 
     def calc_Qirr(self):
-        floating_data = self.df.query("StepStatus == 'CVC'")
-        cycles = floating_data["CycleNo"].unique()
+        floating_data = self.df.query("`{0}` == 'CVC'".format(self.status_col))
+        cycles = floating_data[self.cycle_col].unique()
         self.qirr_dict = {}
 
         for idx, cycle in enumerate(cycles):
             self.qirr_dict[idx + 1] = abs(
                 np.mean(
-                    floating_data.query("CycleNo == @cycle")["Current/uA"][::10]
+                    floating_data.query("`{0}` == @cycle".format(self.cycle_col))[
+                        "Current/uA"
+                    ][::10]
                     * self.resample_time(
-                        floating_data.query("CycleNo == @cycle")["TestTime/Sec"][::10]
+                        floating_data.query("`{0}` == @cycle".format(self.cycle_col))[
+                            "TestTime/Sec"
+                        ][::10]
                     )
                 )
                 / 3.6e6
@@ -100,11 +122,15 @@ class AgingData:
         self.total_qirr = list(accumulate(self.qirr_dict.values()))
 
     def get_leakage_current(self):
-        floating_data = self.df.query("StepStatus == 'CVC'")
-        cycles = floating_data["CycleNo"].unique()
+        floating_data = self.df.query("`{0}` == 'CVC'".format(self.status_col))
+        cycles = floating_data[self.cycle_col].unique()
         self.leakage_current = [
             round(
-                np.mean(floating_data.query("CycleNo == @cycle")["Current/uA"][-100:]),
+                np.mean(
+                    floating_data.query("`{0}` == @cycle".format(self.cycle_col))[
+                        "Current/uA"
+                    ][-100:]
+                ),
                 2,
             )
             for cycle in cycles
@@ -134,7 +160,7 @@ class AgingData:
             self.data_dict[cycle]["Charge_cap"] for cycle in self.data_dict
         ]
 
-    def plot_IR_drop_cap_fade_vs_cycle(self, axis):
+    def plot_IR_drop_cap_fade_vs_cycle(self, axis, axis_labels=None):
         ax2 = axis.twinx()
 
         axis.plot(self.aging_cycles, self.discharge_cap, "-o", color="tab:red")
@@ -150,8 +176,10 @@ class AgingData:
         axis.set_xlabel("Aging Cycle #")
         axis.set_ylabel("Capacitance (F/g)")
         ax2.set_ylabel("IR Drop ($\Omega$.cm$^2$)", rotation=270, va="bottom")
+        if axis_labels:
+            ax2.get_yaxis().set_visible(False)
 
-    def plot_IR_drop_cap_fade_vs_qirr(self, axis):
+    def plot_IR_drop_cap_fade_vs_qirr(self, axis, axis_labels=None):
         x = self.total_qirr
         ax2 = axis.twinx()
 
@@ -168,6 +196,8 @@ class AgingData:
         axis.set_xlabel("Qirr (mAh)")
         axis.set_ylabel("Capacitance (F/g)")
         ax2.set_ylabel("IR Drop ($\Omega$.cm$^2$)", rotation=270, va="bottom")
+        if axis_labels:
+            ax2.get_yaxis().set_visible(False)
 
     def plot_first_and_last_cycle(self, axis, legend=None):
         keys = list(self.data_dict.keys())
@@ -261,6 +291,6 @@ class AgingData:
                 "Charge Capacitance (F/g)": self.charge_cap,
                 "IR drop ($\Omega$)": self.IR_drop,
                 "IR drop increase (%)": self.resist_increase,
-                "Leakage Current uA": self.get_leakage_current,
+                "Leakage Current uA": self.leakage_current,
             }
         )

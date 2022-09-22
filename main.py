@@ -1,4 +1,4 @@
-import sys, os, subprocess
+import sys, os
 import textwrap
 from collections import deque
 
@@ -11,7 +11,7 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from PyQt5.QtCore import Qt, pyqtSignal, QEvent
-from PyQt5.QtGui import QIcon, QFont
+from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -33,6 +33,8 @@ if hasattr(Qt, "AA_EnableHighDpiScaling"):
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
 if hasattr(Qt, "AA_UseHighDpiPixmaps"):
     QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+
+basedir = os.path.dirname(__file__)
 
 
 class MplCanvas(FigureCanvasQTAgg):
@@ -119,12 +121,12 @@ class SecondWindow(QMainWindow):
         if self.aging_data:
             self.aging_data.prep_data()
             btn = widget_slot_queue.popleft()
-            self.aging_data.plot_IR_drop_cap_fade_vs_cycle(axis=btn.axes)
+            self.aging_data.plot_IR_drop_cap_fade_vs_cycle(axis=btn.axes, axis_labels=1)
             fig = window_queue.popleft()
             self.aging_data.plot_IR_drop_cap_fade_vs_cycle(axis=fig.axes)
 
             btn2 = widget_slot_queue.popleft()
-            self.aging_data.plot_IR_drop_cap_fade_vs_qirr(axis=btn2.axes)
+            self.aging_data.plot_IR_drop_cap_fade_vs_qirr(axis=btn2.axes, axis_labels=1)
             fig2 = window_queue.popleft()
             self.aging_data.plot_IR_drop_cap_fade_vs_qirr(axis=fig2.axes)
 
@@ -135,22 +137,51 @@ class SecondWindow(QMainWindow):
             self.aging_data.prep_export()
 
         if self.cvs_before and self.cvs_after:
-            for keyb, keya in zip(self.cvs_before, self.cvs_after):
+            for (keyb, keya) in zip(self.cvs_before, self.cvs_after):
                 btn = widget_slot_queue.popleft()
-                self.cvs_before[keyb].plot_cv_cap_current_density(axis=btn.axes)
-                self.cvs_after[keya].plot_cv_cap_current_density(axis=btn.axes)
+                self.cvs_before[keyb].plot_cv_cap_current_density(
+                    axis=btn.axes, color="tab:red"
+                )
+                self.cvs_after[keya].plot_cv_cap_current_density(
+                    axis=btn.axes, color="k"
+                )
 
                 fig = window_queue.popleft()
                 self.cvs_before[keyb].plot_cv_cap_current_density(
-                    label="before aging", axis=fig.axes
+                    label="before aging", axis=fig.axes, color="tab:red"
                 )
                 self.cvs_after[keya].plot_cv_cap_current_density(
-                    label="after aging", axis=fig.axes
+                    label="after aging", axis=fig.axes, color="k"
                 )
 
+        if self.cvs_before and not self.cvs_after:
+            for keyb in self.cvs_before:
+                btn = widget_slot_queue.popleft()
+                self.cvs_before[keyb].plot_cv_cap_current_density(
+                    axis=btn.axes, color="tab:red"
+                )
+
+                fig = window_queue.popleft()
+                self.cvs_before[keyb].plot_cv_cap_current_density(
+                    label="before aging", axis=fig.axes, color="tab:red"
+                )
+
+        if self.cvs_after and not self.cvs_before:
+            for keya in self.cvs_after:
+                btn = widget_slot_queue.popleft()
+                self.cvs_after[keya].plot_cv_cap_current_density(
+                    axis=btn.axes, color="k"
+                )
+
+                fig = window_queue.popleft()
+                self.cvs_after[keya].plot_cv_cap_current_density(
+                    label="after aging", axis=fig.axes, color="k"
+                )
+
+        eis_labels = ["OCV", "0.5 V", "1.0 V"]
+        eis_colors = ["black", "tab:red", "tab:blue"]
         if self.eis_before and self.eis_after:
-            labels = ["OCV", "0.5 V", "1.0 V"]
-            for keyb, keya, label in zip(self.eis_before, self.eis_after, labels):
+            for keyb, keya, label in zip(self.eis_before, self.eis_after, eis_labels):
                 btn = widget_slot_queue.popleft()
                 self.eis_before[keyb].plot_caps_vs_freq(axis=btn.axes)
                 self.eis_after[keya].plot_caps_vs_freq(axis=btn.axes, color="k")
@@ -166,39 +197,64 @@ class SecondWindow(QMainWindow):
         if self.eis_before:
             btn = widget_slot_queue.popleft()
             fig = window_queue.popleft()
-
-            for key, label in zip(self.eis_before, labels):
-                self.eis_before[key].nyquist_plots(figure=btn.fig, axis=btn.axes)
+            for key, label, color in zip(self.eis_before, eis_labels, eis_colors):
                 self.eis_before[key].nyquist_plots(
-                    label=f"{label} before aging", figure=fig.fig, axis=fig.axes
+                    figure=btn.fig,
+                    axis=btn.axes,
+                    marker="o",
+                    axis_labels=1,
+                    color=color,
+                )
+                self.eis_before[key].nyquist_plots(
+                    label=f"{label} before aging",
+                    figure=fig.fig,
+                    axis=fig.axes,
+                    marker="o",
+                    color=color,
                 )
 
             btn = widget_slot_queue.popleft()
             fig = window_queue.popleft()
 
-            for key, label in zip(self.eis_before, labels):
-                self.eis_before[key].plot_img_cap_vs_real_Z(axis=btn.axes)
+            for key, label, color in zip(self.eis_before, eis_labels, eis_colors):
                 self.eis_before[key].plot_img_cap_vs_real_Z(
-                    label=f"{label} before aging", axis=fig.axes
+                    axis=btn.axes, marker="o", color=color
+                )
+                self.eis_before[key].plot_img_cap_vs_real_Z(
+                    label=f"{label} before aging",
+                    axis=fig.axes,
+                    marker="o",
+                    color=color,
                 )
 
         if self.eis_after:
             btn = widget_slot_queue.popleft()
             fig = window_queue.popleft()
-
-            for key, label in zip(self.eis_after, labels):
-                self.eis_after[key].nyquist_plots(figure=btn.fig, axis=btn.axes)
+            for key, label, color in zip(self.eis_after, eis_labels, eis_colors):
                 self.eis_after[key].nyquist_plots(
-                    label=f"{label} after aging", figure=fig.fig, axis=fig.axes
+                    figure=btn.fig,
+                    axis=btn.axes,
+                    marker="s",
+                    axis_labels=1,
+                    color=color,
+                )
+                self.eis_after[key].nyquist_plots(
+                    label=f"{label} after aging",
+                    figure=fig.fig,
+                    axis=fig.axes,
+                    marker="s",
+                    color=color,
                 )
 
             btn = widget_slot_queue.popleft()
             fig = window_queue.popleft()
 
-            for key, label in zip(self.eis_after, labels):
-                self.eis_after[key].plot_img_cap_vs_real_Z(axis=btn.axes)
+            for key, label, color in zip(self.eis_after, eis_labels, eis_colors):
                 self.eis_after[key].plot_img_cap_vs_real_Z(
-                    label=f"{label} after aging", axis=fig.axes
+                    axis=btn.axes, marker="s", color=color
+                )
+                self.eis_after[key].plot_img_cap_vs_real_Z(
+                    label=f"{label} after aging", axis=fig.axes, marker="s", color=color
                 )
 
         widget = QWidget()
@@ -445,12 +501,18 @@ class MainWindow(QMainWindow):
 
     def get_csv_files(self, widget):
         filters = "Comma Separated Values (*.csv)"
-        filename, _ = QFileDialog.getOpenFileName(filter=filters)
+        filename, _ = QFileDialog.getOpenFileName(
+            filter=filters,
+            directory=os.path.join(os.path.join(os.environ["USERPROFILE"]), "Desktop"),
+        )
         widget.setText(filename)
 
     def get_txt_files(self, widget):
         filters = "Text files (*.txt)"
-        filename, _ = QFileDialog.getOpenFileName(filter=filters)
+        filename, _ = QFileDialog.getOpenFileName(
+            filter=filters,
+            directory=os.path.join(os.path.join(os.environ["USERPROFILE"]), "Desktop"),
+        )
         widget.setText(filename)
 
     def calc_aging_data(self, file, mass, area):
@@ -473,6 +535,7 @@ class MainWindow(QMainWindow):
                 continue
             cvs_before[rates[idx]] = CVs(rate=rates[idx], mass=mass)
             cvs_before[rates[idx]].read_prep_data(cv)
+            cvs_before[rates[idx]].calc_capacitance()
             cvs_before[rates[idx]].prep_export()
         return cvs_before
 
@@ -484,6 +547,7 @@ class MainWindow(QMainWindow):
                 continue
             cvs_after[rates[idx]] = CVs(rate=rates[idx], mass=mass)
             cvs_after[rates[idx]].read_prep_data(cv)
+            cvs_after[rates[idx]].calc_capacitance()
             cvs_after[rates[idx]].prep_export()
         return cvs_after
 
@@ -512,8 +576,38 @@ class MainWindow(QMainWindow):
         return eis_after
 
     def show_data_window(self):
-        mass = float(self.mass_entry.text())
-        area = float(self.area_entry.text())
+        try:
+            mass = float(self.mass_entry.text())
+        except ValueError:
+            dlg = QMessageBox(self)
+            dlg.setWindowTitle("No mass input")
+            dlg.setText(
+                textwrap.dedent(
+                    """\
+                    Please enter a value for the electrode mass (in g).
+                    """
+                )
+            )
+            dlg.setIcon(QMessageBox.Warning)
+            dlg.setStandardButtons(QMessageBox.Ok)
+            button = dlg.exec_()
+            return
+        try:
+            area = float(self.area_entry.text())
+        except ValueError:
+            dlg = QMessageBox(self)
+            dlg.setWindowTitle("No area input")
+            dlg.setText(
+                textwrap.dedent(
+                    """\
+                    Please enter a value for the electrode area (in cm<sup>2</sup>).
+                    """
+                )
+            )
+            dlg.setIcon(QMessageBox.Warning)
+            dlg.setStandardButtons(QMessageBox.Ok)
+            button = dlg.exec_()
+            return
 
         aging_file = self.aging_data_display.text()
 
@@ -537,20 +631,136 @@ class MainWindow(QMainWindow):
             self.eis_one_V_after_display.text(),
         ]
 
-        self.data_window = SecondWindow(
-            aging_data=self.calc_aging_data(file=aging_file, mass=mass, area=area),
-            cvs_before=self.calc_cv_data_before_aging(
+        try:
+            aging_data = self.calc_aging_data(file=aging_file, mass=mass, area=area)
+        except KeyError:
+            dlg = QMessageBox(self)
+            dlg.setWindowTitle("File Error for Aging Data")
+            dlg.setText(
+                textwrap.dedent(
+                    """\
+                    The file loaded for "Aging Data" does not contain the correct data headers.
+                    Check to ensure the file is correct.
+                    """
+                )
+            )
+            dlg.setIcon(QMessageBox.Warning)
+            dlg.setStandardButtons(QMessageBox.Ok)
+            button = dlg.exec_()
+            return
+
+        try:
+            cvs_before = self.calc_cv_data_before_aging(
                 file_list=cvs_before_files, mass=mass
-            ),
-            cvs_after=self.calc_cv_data_after_aging(
+            )
+        except KeyError:
+            dlg = QMessageBox(self)
+            dlg.setWindowTitle("File Error for CVs Before Aging Data")
+            dlg.setText(
+                textwrap.dedent(
+                    """\
+                    One, or both, files loaded for "CVs Before Aging" does not contain the correct data headers.
+                    Check to ensure the files are correct.
+                    """
+                )
+            )
+            dlg.setIcon(QMessageBox.Warning)
+            dlg.setStandardButtons(QMessageBox.Ok)
+            button = dlg.exec_()
+            return
+
+        try:
+            cvs_after = self.calc_cv_data_after_aging(
                 file_list=cvs_after_files, mass=mass
-            ),
-            eis_before=self.calc_eis_data_before_aging(
+            )
+        except KeyError:
+            dlg = QMessageBox(self)
+            dlg.setWindowTitle("File Error for CVs After Aging Data")
+            dlg.setText(
+                textwrap.dedent(
+                    """\
+                    One, or both, files loaded for "CVs After Aging" does not contain the correct data headers.
+                    Check to ensure the files are correct.
+                    """
+                )
+            )
+            dlg.setIcon(QMessageBox.Warning)
+            dlg.setStandardButtons(QMessageBox.Ok)
+            button = dlg.exec_()
+            return
+
+        try:
+            eis_before = self.calc_eis_data_before_aging(
                 file_list=eis_before_files, area=area
-            ),
-            eis_after=self.calc_eis_data_after_aging(
+            )
+        except KeyError:
+            dlg = QMessageBox(self)
+            dlg.setWindowTitle("File Error for EIS Before Aging Data")
+            dlg.setText(
+                textwrap.dedent(
+                    """\
+                    One, or multiple, files loaded for "EIS Before Aging" does not contain the correct data headers.
+                    Check to ensure the files are correct.
+                    """
+                )
+            )
+            dlg.setIcon(QMessageBox.Warning)
+            dlg.setStandardButtons(QMessageBox.Ok)
+            button = dlg.exec_()
+            return
+
+        try:
+            eis_after = self.calc_eis_data_after_aging(
                 file_list=eis_after_files, area=area
-            ),
+            )
+        except KeyError:
+            dlg = QMessageBox(self)
+            dlg.setWindowTitle("File Error for EIS After Aging Data")
+            dlg.setText(
+                textwrap.dedent(
+                    """\
+                    One, or multiple, files loaded for "EIS After Aging" does not contain the correct data headers.
+                    Check to ensure the files are correct.
+                    """
+                )
+            )
+            dlg.setIcon(QMessageBox.Warning)
+            dlg.setStandardButtons(QMessageBox.Ok)
+            button = dlg.exec_()
+            return
+
+        try:
+            if (
+                not aging_data
+                and not cvs_before
+                and not cvs_after
+                and not eis_before
+                and not eis_after
+            ):
+                raise Exception
+        except Exception:
+            dlg = QMessageBox(self)
+            dlg.setWindowTitle("No files loaded!")
+            dlg.setText(
+                textwrap.dedent(
+                    """\
+                    No files were input for processing.
+                    At least one of the sections for "Aging Data", "CVs",
+                    or "EIS" must be filled in to continue. 
+                    """
+                )
+            )
+            dlg.setIcon(QMessageBox.Warning)
+            dlg.setStandardButtons(QMessageBox.Ok)
+            button = dlg.exec_()
+            return
+
+        self.data_window = SecondWindow(
+            aging_data=aging_data,
+            cvs_before=cvs_before,
+            cvs_after=cvs_after,
+            eis_before=eis_before,
+            eis_after=eis_after,
         )
 
         self.close()
@@ -560,6 +770,7 @@ class MainWindow(QMainWindow):
 def main():
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
+    # app.setWindowIcon(QIcon(os.path.join(basedir, "dilatometry_icon.ico")))
 
     window = MainWindow()
     window.show()
