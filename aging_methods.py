@@ -289,7 +289,7 @@ class AgingData:
                 "Discharge Capacitance (F/g)": self.discharge_cap,
                 "Discharge cap decrease (%)": self.cap_decrease,
                 "Charge Capacitance (F/g)": self.charge_cap,
-                "IR drop ($\Omega$)": self.IR_drop,
+                "IR drop (Ohm * cm2)": self.IR_drop,
                 "IR drop increase (%)": self.resist_increase,
                 "Leakage Current uA": self.leakage_current,
             }

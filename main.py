@@ -503,7 +503,6 @@ class MainWindow(QMainWindow):
         filters = "Comma Separated Values (*.csv)"
         filename, _ = QFileDialog.getOpenFileName(
             filter=filters,
-            directory=os.path.join(os.path.join(os.environ["USERPROFILE"]), "Desktop"),
         )
         widget.setText(filename)
 
@@ -511,7 +510,6 @@ class MainWindow(QMainWindow):
         filters = "Text files (*.txt)"
         filename, _ = QFileDialog.getOpenFileName(
             filter=filters,
-            directory=os.path.join(os.path.join(os.environ["USERPROFILE"]), "Desktop"),
         )
         widget.setText(filename)
 
