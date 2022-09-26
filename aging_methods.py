@@ -2,9 +2,9 @@ import re
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from scipy import integrate
 
 from collections import Counter
-from itertools import accumulate
 
 cycle_match = "(?i)Cycle"
 status_match = "(?i)StepStatus|Step-State"
@@ -16,26 +16,41 @@ class AgingData:
         self.area = area
 
     def read_data(self, file_name):
+        """
+        Initially loads data and identifies the column name for the cycle number
+        and cycle status columns using the regular expressions defined above.
+        """
         self.df = pd.read_csv(file_name)
-        self.cycle_col = str([col for col in self.df if re.search(cycle_match, col)][0])
+        self.cycle_col = [col for col in self.df if re.search(cycle_match, col)][0]
         self.status_col = [col for col in self.df if re.search(status_match, col)][0]
 
     def resample_time(self, time_series):
-        """"""
+        """
+        Counts all duplicate time measurements for a series of integers, then evenly
+        re-distributes the dublicate elements based on their total counts.
+        e.g., 1, 1, 1, 1, 2, 2, 2, 3... -> 1, 1.25, 1.5, 1.75, 2, 2.3333. 2.6667, 3...
+        """
         resampled_series = []
         counter = dict(sorted(Counter(time_series).items()))
         for num in counter:
             resampled_series.extend(
-                np.linspace(start=num, stop=num + 1, num=counter[num])
+                np.linspace(start=num, stop=num + 1, num=counter[num], endpoint=False)
             )
         return resampled_series
 
     def calc_cap_IR_drop(self):
-        """"""
+        """
+        Gets the IR drop and charge/discharge capacitance for every 6th cycle.
+        Separates charge and discharge branches by their status label, i.e.,
+        "CCC" and "CCD". The data for each cycle is stored in a dictionary
+        (hash table), where the dictionary keys are the aging cycles.
+        """
         cycles_to_process = self.df.query(
             "`{0}` % 6 == 0".format(self.cycle_col)
         ).reset_index(drop=True)
-        cycles_to_process["Fixed_time"] = self.resample_time(
+        cycles_to_process[
+            "Fixed_time"
+        ] = self.resample_time(  # Here is where the resample method is used
             cycles_to_process["TestTime/Sec"]
         )
 
@@ -81,6 +96,8 @@ class AgingData:
                 / (current_zero_val)
             )
 
+            # np.polyfit is general polynomial fitting function.
+            # setting deg=1 means linear fit
             charge_m, charge_b = np.polyfit(
                 x=self.data_dict[cycle]["Charge_time"],
                 y=self.data_dict[cycle]["Charge_voltage"],
@@ -100,28 +117,44 @@ class AgingData:
             ) / self.mass
 
     def calc_Qirr(self):
-        floating_data = self.df.query("`{0}` == 'CVC'".format(self.status_col))
-        cycles = floating_data[self.cycle_col].unique()
-        self.qirr_dict = {}
-
-        for idx, cycle in enumerate(cycles):
-            self.qirr_dict[idx + 1] = abs(
-                np.mean(
-                    floating_data.query("`{0}` == @cycle".format(self.cycle_col))[
-                        "Current/uA"
-                    ][::10]
-                    * self.resample_time(
-                        floating_data.query("`{0}` == @cycle".format(self.cycle_col))[
-                            "TestTime/Sec"
-                        ][::10]
-                    )
-                )
-                / 3.6e6
+        """
+        Performs cumulative integration of the total time and current to get the
+        total build up of Q. The values for Q for each aging cycle are taken by
+        averaging the Q from every 6th cycle (same as IR drop/cap above, prior to
+        floating).
+        """
+        self.df["(Q-Qo)/mA.h"] = (
+            integrate.cumtrapz(
+                self.df["Current/uA"], self.df["TestTime/Sec"], initial=0
             )
+            / 3.6e6
+        )
 
-        self.total_qirr = list(accumulate(self.qirr_dict.values()))
+        cycles_to_process = self.df.query(
+            "`{0}` % 6 == 0".format(self.cycle_col)
+        ).reset_index(drop=True)
+
+        cycle_num = cycles_to_process[self.cycle_col].unique()
+
+        self.total_qirr = [
+            np.mean(self.df[self.df["CycleNo"] == cycle]["(Q-Qo)/mA.h"])
+            for cycle in cycle_num
+        ]
+
+        # since the cumulative Q is calculated first, we have to take the
+        # difference between each cycle to see the cycle-to-cycle values
+        self.q_diff = [self.total_qirr[0]]
+        self.q_diff.extend(
+            [
+                self.total_qirr[i + 1] - self.total_qirr[i]
+                for i in range(len(self.total_qirr) - 1)
+            ]
+        )
 
     def get_leakage_current(self):
+        """
+        Gets the average of the last 100 points recorded during floating.
+        """
         floating_data = self.df.query("`{0}` == 'CVC'".format(self.status_col))
         cycles = floating_data[self.cycle_col].unique()
         self.leakage_current = [
@@ -151,6 +184,10 @@ class AgingData:
         ]
 
     def prep_data(self):
+        """
+        Grabbing certain values from the data dictionary that will be needed
+        in the exported excel sheet.
+        """
         self.aging_cycles = [cycle / 6 for cycle in self.data_dict]
         self.IR_drop = [self.data_dict[cycle]["IR drop"] for cycle in self.data_dict]
         self.discharge_cap = [
@@ -258,6 +295,10 @@ class AgingData:
             axis.legend()
 
     def prep_export(self):
+        """
+        Creates the two dataframes that will be exported to the final
+        excel file as two different sheets.
+        """
         self.ccd_curves = pd.DataFrame(
             {
                 "First cycle charge time (s)": self.charge_time_first,
@@ -278,14 +319,15 @@ class AgingData:
                 ],
             }
         )
-
+        # this lambda function removes anoyying null values from the top of the
+        # excel file for the ccd curves
         self.ccd_curves = self.ccd_curves.apply(lambda x: pd.Series(x.dropna().values))
 
         self.aging_df = pd.DataFrame(
             {
                 "Aging Cycles": self.aging_cycles,
-                "Qirr (mAh)": [val for val in self.qirr_dict.values()],
-                "Qirr total (mAh)": self.total_qirr,
+                "Qirr (mAh)": self.q_diff,
+                "Qirr cumulative (mAh)": self.total_qirr,
                 "Discharge Capacitance (F/g)": self.discharge_cap,
                 "Discharge cap decrease (%)": self.cap_decrease,
                 "Charge Capacitance (F/g)": self.charge_cap,

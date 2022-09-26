@@ -29,14 +29,14 @@ def export_data(
         )
         worksheet = writer.sheets["Aging Data CCD curves"]
         for col_num, value in enumerate(aging_data.ccd_curves.columns.values):
-            worksheet.write(0, col_num + 1, value, header_format)
+            worksheet.write(0, col_num, value, header_format)
 
         aging_data.aging_df.to_excel(
             writer, sheet_name="Aging Data", startrow=1, header=False, index=False
         )
         worksheet = writer.sheets["Aging Data"]
         for col_num, value in enumerate(aging_data.aging_df.columns.values):
-            worksheet.write(0, col_num + 1, value, header_format)
+            worksheet.write(0, col_num, value, header_format)
 
     if cvs_before:
         for key in cvs_before:

@@ -36,6 +36,14 @@ if hasattr(Qt, "AA_UseHighDpiPixmaps"):
 
 basedir = os.path.dirname(__file__)
 
+try:
+    from ctypes import windll
+
+    myappid = "supercap_aging.tylersmathis"
+    windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+except ImportError:
+    pass
+
 
 class MplCanvas(FigureCanvasQTAgg):
     def __init__(self, parent=None):
@@ -768,7 +776,7 @@ class MainWindow(QMainWindow):
 def main():
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
-    # app.setWindowIcon(QIcon(os.path.join(basedir, "dilatometry_icon.ico")))
+    app.setWindowIcon(QIcon(os.path.join(basedir, "supercap_aging.ico")))
 
     window = MainWindow()
     window.show()
