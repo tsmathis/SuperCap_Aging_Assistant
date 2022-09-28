@@ -137,7 +137,7 @@ class AgingData:
         cycle_num = cycles_to_process[self.cycle_col].unique()
 
         self.total_qirr = [
-            np.mean(self.df[self.df["CycleNo"] == cycle]["(Q-Qo)/mA.h"])
+            np.mean(self.df[self.cycle_col == cycle]["(Q-Qo)/mA.h"])
             for cycle in cycle_num
         ]
 
