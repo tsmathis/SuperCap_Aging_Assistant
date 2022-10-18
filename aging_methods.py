@@ -1,9 +1,8 @@
 import re
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from scipy import integrate
 
+from scipy import integrate
 from collections import Counter
 
 cycle_match = "(?i)Cycle"
@@ -26,9 +25,8 @@ class AgingData:
 
     def resample_time(self, time_series):
         """
-        Counts all duplicate time measurements for a series of integers, then evenly
+        Counts all duplicate time measurements for a series, then evenly
         re-distributes the dublicate elements based on their total counts.
-        e.g., 1, 1, 1, 1, 2, 2, 2, 3... -> 1, 1.25, 1.5, 1.75, 2, 2.3333. 2.6667, 3...
         """
         resampled_series = []
         counter = dict(sorted(Counter(time_series).items()))
@@ -42,15 +40,12 @@ class AgingData:
         """
         Gets the IR drop and charge/discharge capacitance for every 6th cycle.
         Separates charge and discharge branches by their status label, i.e.,
-        "CCC" and "CCD". The data for each cycle is stored in a dictionary
-        (hash table), where the dictionary keys are the aging cycles.
+        "CCC" and "CCD".
         """
         cycles_to_process = self.df.query(
             "`{0}` % 6 == 0".format(self.cycle_col)
         ).reset_index(drop=True)
-        cycles_to_process[
-            "Fixed_time"
-        ] = self.resample_time(  # Here is where the resample method is used
+        cycles_to_process["Fixed_time"] = self.resample_time(
             cycles_to_process["TestTime/Sec"]
         )
 
@@ -96,8 +91,6 @@ class AgingData:
                 / (current_zero_val)
             )
 
-            # np.polyfit is general polynomial fitting function.
-            # setting deg=1 means linear fit
             charge_m, charge_b = np.polyfit(
                 x=self.data_dict[cycle]["Charge_time"],
                 y=self.data_dict[cycle]["Charge_voltage"],
@@ -119,7 +112,7 @@ class AgingData:
     def calc_Qirr(self):
         """
         Performs cumulative integration of the total time and current to get the
-        total build up of Q. The values for Q for each aging cycle are taken by
+        total accumulation of Q. The values for Q for each aging cycle are taken by
         averaging the Q from every 6th cycle (same as IR drop/cap above, prior to
         floating).
         """
@@ -137,7 +130,7 @@ class AgingData:
         cycle_num = cycles_to_process[self.cycle_col].unique()
 
         self.total_qirr = [
-            np.mean(self.df[self.cycle_col == cycle]["(Q-Qo)/mA.h"])
+            np.mean(self.df[self.df[self.cycle_col] == cycle]["(Q-Qo)/mA.h"])
             for cycle in cycle_num
         ]
 
@@ -153,7 +146,7 @@ class AgingData:
 
     def get_leakage_current(self):
         """
-        Gets the average of the last 100 points recorded during floating.
+        Gets the average current of the last 100 points recorded during floating.
         """
         floating_data = self.df.query("`{0}` == 'CVC'".format(self.status_col))
         cycles = floating_data[self.cycle_col].unique()
@@ -319,8 +312,8 @@ class AgingData:
                 ],
             }
         )
-        # this lambda function removes anoyying null values from the top of the
-        # excel file for the ccd curves
+
+        # removes annoying null values from the top of the excel file for the ccd curves
         self.ccd_curves = self.ccd_curves.apply(lambda x: pd.Series(x.dropna().values))
 
         self.aging_df = pd.DataFrame(
