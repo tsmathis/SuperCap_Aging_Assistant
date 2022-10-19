@@ -42,8 +42,7 @@ For every aging cycle, linear fitting is performed for both the charge and disch
 For every aging cycle, the IR drop is recorded for the galvanostatic cycle defined by the user (default is the sixth cycle). The IR drop (in ohm*cm^2) is calculated from the difference between the last point of with the following equation:
 <p align=center>IR Drop (ohm * cm^2) = (<i>V<sub>C</sub> - V<sub>D</sub></i>) / (<i>i * area</i>) (<i>eq.</i> 2)</p>
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;where, *V<sub>C</sub>* is the last voltage value recorded during the charge branch of the cycle, *V<sub>D</sub>* is the first voltage value recorded during the discharge branch of the cycle, *i* is the applied current, and area is 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;the electrode area.
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;where, *V<sub>C</sub>* is the last voltage value recorded during the charge branch of the cycle, *V<sub>D</sub>* is the first voltage value recorded during the discharge branch of the cycle, *i* is the applied current, and area is the electrode area.
 
 - Q<sub>*irr*</sub>:  
 The irrversible charge loss (Q<sub>*irr*</sub>) for each aging cycle is calculated by first taking the cumulative integral of the current versus time across the whole aging experiment then averaging the charge for the galvanostatic cycle defined by the user (default is the sixth cycle).
