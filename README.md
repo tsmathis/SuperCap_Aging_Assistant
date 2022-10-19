@@ -7,8 +7,8 @@
  
 - **Aging Data**: .csv file generated from Landt Instruments V7.4 software[^1], columns for test time (units: seconds), voltage (units: volts), current (units: microamps), cycle number,
   and status (expected: CCD, CCC, and CVC)
-- **Cyclic Voltammograms (CVs)**: .txt file generated from BioLogic's EC-Lab software[^2], columns for time (units: seconds), voltage (units: volts), current (units: milliamps), and cycle number
-- **Electrochemical Impedance Specta (EIS)**: .txt file generated from BioLogic's EC-Lab software, columns for frequency (units: hertz), real impedance (Re(Z), units: ohms), and imaginary
+- **Cyclic Voltammograms**: .txt file generated from BioLogic's EC-Lab software[^2], columns for time (units: seconds), voltage (units: volts), current (units: milliamps), and cycle number
+- **Electrochemical Impedance Spectra**: .txt file generated from BioLogic's EC-Lab software, columns for frequency (units: hertz), real impedance (Re(Z), units: ohms), and imaginary
   impedance (-Im(Z), units: ohms)  
 
 *Demo files for the current build are included for reference in the application's home directory that was created by the installer* 
