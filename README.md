@@ -55,4 +55,4 @@ The irrversible charge loss (Q<sub>*irr*</sub>) for each aging cycle is calculat
 [^1]: [Landt Instruments Battery Testing Software](https://www.landtinst.com/download/)
 [^2]: [BioLogic EC-Lab](https://www.biologic.net/support-software/ec-lab-software/)
 [^3]: [Understanding of carbon-based supercapacitors ageing mechanisms by electrochemical and analytical methods](https://www.sciencedirect.com/science/article/pii/S0378775317311370)
-[^4]: [Supplementary Information from ref. 3](https://ars.els-cdn.com/content/image/1-s2.0-S0378775317311370-mmc1.doc)
+[^4]: [Supplementary Information from ref. 3]
