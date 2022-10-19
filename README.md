@@ -18,7 +18,7 @@
 ## *Accelerated Aging of Supercapacitor Electrodes*
 
 This application automates the processing and visualiation of data generated during acclerated electrochemical aging experiments performed on supercapacitors.[^3] A general aging experiment
-proceeds as follows: (1) Pre-aging electrochemical characterization using cyclic voltammetry and electrochemical impedance spectroscopy, (2) An extended aging procedure of repeated "aging cycles" consisting of galvanostatic cycling and constant voltage floating (example in image below), and (3) Post-aging electrochemical characterization again using CV and EIS.
+proceeds as follows: (1) Pre-aging electrochemical characterization using cyclic voltammetry (CV) and electrochemical impedance spectroscopy (EIS), (2) An extended aging procedure of repeated "aging cycles" consisting of galvanostatic cycling and constant voltage floating (example in image below), and (3) Post-aging electrochemical characterization again using CV and EIS.
   
 *Note: It is not required to fill in all of the file import fields, feel free to pick and choose the sections that are applicable for you.*
   
