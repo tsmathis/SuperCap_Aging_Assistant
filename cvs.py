@@ -1,7 +1,5 @@
 import pandas as pd
 import numpy as np
-from collections import deque
-import matplotlib.pyplot as plt
 
 
 class CVs:
