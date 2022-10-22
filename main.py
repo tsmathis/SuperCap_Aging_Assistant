@@ -1,12 +1,19 @@
-import sys, os
-import textwrap
+import sys, os, textwrap
 
 from aging_methods import AgingData
 from eis import Eis
 from cvs import CVs
 from data_window_ui import DataWindow
+from spinner_widget import QtWaitingSpinner
 
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import (
+    Qt,
+    QThreadPool,
+    QRunnable,
+    QMetaObject,
+    pyqtSlot,
+    Q_ARG,
+)
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import (
     QApplication,
@@ -40,6 +47,22 @@ except ImportError:
     pass
 
 
+class Worker(QRunnable):
+    def __init__(self, func, dialog):
+        super(Worker, self).__init__()
+        self.func = func
+        self.w = dialog
+
+    def run(self):
+        self.func()
+        QMetaObject.invokeMethod(
+            self.w,
+            "set_data",
+            Qt.QueuedConnection,
+            Q_ARG(object, self.w),
+        )
+
+
 class FileWindow(QMainWindow):
     def __init__(self, parent=None) -> None:
         super(FileWindow, self).__init__(parent)
@@ -47,6 +70,9 @@ class FileWindow(QMainWindow):
         self.setWindowTitle("SuperCap Aging: Data Import")
         self.setMaximumWidth(1200)
         self.page_layout = QVBoxLayout()
+
+        self.spinner = QtWaitingSpinner(self, True, True, Qt.ApplicationModal)
+        self.page_layout.addWidget(self.spinner)
 
         entry_boxes = QWidget()
         entry_layout = QFormLayout()
@@ -335,7 +361,7 @@ class FileWindow(QMainWindow):
             eis_after[labels[idx]].prep_export()
         return eis_after
 
-    def show_data_window(self):
+    def process_data(self):
         try:
             mass = float(self.mass_entry.text())
         except ValueError:
@@ -392,7 +418,9 @@ class FileWindow(QMainWindow):
         ]
 
         try:
-            aging_data = self.calc_aging_data(file=aging_file, mass=mass, area=area)
+            self.aging_data = self.calc_aging_data(
+                file=aging_file, mass=mass, area=area
+            )
         except KeyError:
             dlg = QMessageBox(self)
             dlg.setWindowTitle("File Error for Aging Data")
@@ -410,7 +438,7 @@ class FileWindow(QMainWindow):
             return
 
         try:
-            cvs_before = self.calc_cv_data_before_aging(
+            self.cvs_before = self.calc_cv_data_before_aging(
                 file_list=cvs_before_files, mass=mass
             )
         except KeyError:
@@ -430,7 +458,7 @@ class FileWindow(QMainWindow):
             return
 
         try:
-            cvs_after = self.calc_cv_data_after_aging(
+            self.cvs_after = self.calc_cv_data_after_aging(
                 file_list=cvs_after_files, mass=mass
             )
         except KeyError:
@@ -450,7 +478,7 @@ class FileWindow(QMainWindow):
             return
 
         try:
-            eis_before = self.calc_eis_data_before_aging(
+            self.eis_before = self.calc_eis_data_before_aging(
                 file_list=eis_before_files, area=area
             )
         except KeyError:
@@ -470,7 +498,7 @@ class FileWindow(QMainWindow):
             return
 
         try:
-            eis_after = self.calc_eis_data_after_aging(
+            self.eis_after = self.calc_eis_data_after_aging(
                 file_list=eis_after_files, area=area
             )
         except KeyError:
@@ -491,11 +519,11 @@ class FileWindow(QMainWindow):
 
         try:
             if (
-                not aging_data
-                and not cvs_before
-                and not cvs_after
-                and not eis_before
-                and not eis_after
+                not self.aging_data
+                and not self.cvs_before
+                and not self.cvs_after
+                and not self.eis_before
+                and not self.eis_after
             ):
                 raise Exception
         except Exception:
@@ -515,16 +543,23 @@ class FileWindow(QMainWindow):
             button = dlg.exec_()
             return
 
-        self.data_window = DataWindow(
-            aging_data=aging_data,
-            cvs_before=cvs_before,
-            cvs_after=cvs_after,
-            eis_before=eis_before,
-            eis_after=eis_after,
-        )
+    def show_data_window(self):
+        self.spinner.start()
+        worker = Worker(func=self.process_data, dialog=self)
+        QThreadPool.globalInstance().start(worker)
 
-        self.close()
+    @pyqtSlot(object)
+    def set_data(self, window):
+        self.data_window = DataWindow(
+            aging_data=window.aging_data,
+            cvs_before=window.cvs_before,
+            cvs_after=window.cvs_after,
+            eis_before=window.eis_before,
+            eis_after=window.eis_after,
+        )
         self.data_window.showMaximized()
+        self.close()
+        self.spinner.stop()
 
 
 def main():
