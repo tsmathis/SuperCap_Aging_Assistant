@@ -1,8 +1,6 @@
-import sys, os, textwrap
+import sys, os
 
-from aging_methods import AgingData
-from eis import Eis
-from cvs import CVs
+from data_processing_funcs import process_data
 from data_window_ui import DataWindow
 from spinner_widget import QtWaitingSpinner
 
@@ -10,9 +8,8 @@ from PyQt5.QtCore import (
     Qt,
     QThreadPool,
     QRunnable,
-    QMetaObject,
-    pyqtSlot,
-    Q_ARG,
+    QObject,
+    pyqtSignal,
 )
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import (
@@ -28,7 +25,6 @@ from PyQt5.QtWidgets import (
     QWidget,
     QFrame,
     QLineEdit,
-    QMessageBox,
 )
 
 if hasattr(Qt, "AA_EnableHighDpiScaling"):
@@ -47,20 +43,42 @@ except ImportError:
     pass
 
 
+class WorkerSignals(QObject):
+    finished = pyqtSignal()
+    error = pyqtSignal(str)
+    result = pyqtSignal(object, object, object, object, object)
+
+
 class Worker(QRunnable):
-    def __init__(self, func, dialog):
+    def __init__(self, dialog):
         super(Worker, self).__init__()
-        self.func = func
+        self.signals = WorkerSignals()
         self.w = dialog
 
     def run(self):
-        self.func()
-        QMetaObject.invokeMethod(
-            self.w,
-            "set_data",
-            Qt.QueuedConnection,
-            Q_ARG(object, self.w),
-        )
+        try:
+            aging_data, cvs_before, cvs_after, eis_before, eis_after = process_data(
+                mass_entry=self.w.mass_entry.text(),
+                area_entry=self.w.area_entry.text(),
+                aging_data_display=self.w.aging_data_display.text(),
+                cvs_five_before_display=self.w.cvs_five_before_display.text(),
+                cvs_p_5_before_display=self.w.cvs_p_5_before_display.text(),
+                cvs_five_after_display=self.w.cvs_five_after_display.text(),
+                cvs_p_5_after_display=self.w.cvs_p_5_after_display.text(),
+                eis_ocv_before_display=self.w.eis_ocv_before_display.text(),
+                eis_p_5V_before_display=self.w.eis_p_5V_before_display.text(),
+                eis_one_V_before_display=self.w.eis_one_V_before_display.text(),
+                eis_ocv_after_display=self.w.eis_ocv_after_display.text(),
+                eis_p_5V_after_display=self.w.eis_p_5V_after_display.text(),
+                eis_one_V_after_display=self.w.eis_one_V_after_display.text(),
+            )
+        except:
+            pass
+        else:
+            self.signals.result.emit(
+                aging_data, cvs_before, cvs_after, eis_before, eis_after
+            )
+            self.signals.finished.emit()
 
 
 class FileWindow(QMainWindow):
@@ -287,6 +305,8 @@ class FileWindow(QMainWindow):
         container.setLayout(self.page_layout)
         self.setCentralWidget(container)
 
+        self.threadpool = QThreadPool()
+
     def get_csv_files(self, widget):
         filters = "Comma Separated Values (*.csv)"
         filename, _ = QFileDialog.getOpenFileName(
@@ -301,265 +321,27 @@ class FileWindow(QMainWindow):
         )
         widget.setText(filename)
 
-    def calc_aging_data(self, file, mass, area):
-        if len(file) == 0:
-            return None
-        aging = AgingData(mass=mass, area=area)
-        aging.read_data(file)
-        aging.calc_cap_IR_drop()
-        aging.calc_Qirr()
-        aging.get_leakage_current()
-        aging.get_cap_decrease()
-        aging.get_resist_increase()
-        return aging
+    def set_data(self, aging_data, cvs_before, cvs_after, eis_before, eis_after):
+        self.data_window = DataWindow(
+            aging_data=aging_data,
+            cvs_before=cvs_before,
+            cvs_after=cvs_after,
+            eis_before=eis_before,
+            eis_after=eis_after,
+        )
+        self.data_window.showMaximized()
 
-    def calc_cv_data_before_aging(self, file_list, mass):
-        rates = [5, 0.5]
-        cvs_before = {}
-        for idx, cv in enumerate(file_list):
-            if len(cv) == 0:
-                continue
-            cvs_before[rates[idx]] = CVs(rate=rates[idx], mass=mass)
-            cvs_before[rates[idx]].read_prep_data(cv)
-            cvs_before[rates[idx]].calc_capacitance()
-            cvs_before[rates[idx]].prep_export()
-        return cvs_before
-
-    def calc_cv_data_after_aging(self, file_list, mass):
-        rates = [5, 0.5]
-        cvs_after = {}
-        for idx, cv in enumerate(file_list):
-            if len(cv) == 0:
-                continue
-            cvs_after[rates[idx]] = CVs(rate=rates[idx], mass=mass)
-            cvs_after[rates[idx]].read_prep_data(cv)
-            cvs_after[rates[idx]].calc_capacitance()
-            cvs_after[rates[idx]].prep_export()
-        return cvs_after
-
-    def calc_eis_data_before_aging(self, file_list, area):
-        labels = ["OCV", "0.5 V", "1.0 V"]
-        eis_before = {}
-        for idx, eis in enumerate(file_list):
-            if len(eis) == 0:
-                continue
-            eis_before[labels[idx]] = Eis(area=area)
-            eis_before[labels[idx]].read_data(eis)
-            eis_before[labels[idx]].calc_eis_cap()
-            eis_before[labels[idx]].prep_export()
-        return eis_before
-
-    def calc_eis_data_after_aging(self, file_list, area):
-        labels = ["OCV", "0.5 V", "1.0 V"]
-        eis_after = {}
-        for idx, eis in enumerate(file_list):
-            if len(eis) == 0:
-                continue
-            eis_after[labels[idx]] = Eis(area=area)
-            eis_after[labels[idx]].read_data(eis)
-            eis_after[labels[idx]].calc_eis_cap()
-            eis_after[labels[idx]].prep_export()
-        return eis_after
-
-    def process_data(self):
-        try:
-            mass = float(self.mass_entry.text())
-        except ValueError:
-            dlg = QMessageBox(self)
-            dlg.setWindowTitle("No mass input")
-            dlg.setText(
-                textwrap.dedent(
-                    """\
-                    Please enter a value for the electrode mass (in g).
-                    """
-                )
-            )
-            dlg.setIcon(QMessageBox.Warning)
-            dlg.setStandardButtons(QMessageBox.Ok)
-            button = dlg.exec_()
-            return
-        try:
-            area = float(self.area_entry.text())
-        except ValueError:
-            dlg = QMessageBox(self)
-            dlg.setWindowTitle("No area input")
-            dlg.setText(
-                textwrap.dedent(
-                    """\
-                    Please enter a value for the electrode area (in cm<sup>2</sup>).
-                    """
-                )
-            )
-            dlg.setIcon(QMessageBox.Warning)
-            dlg.setStandardButtons(QMessageBox.Ok)
-            button = dlg.exec_()
-            return
-
-        aging_file = self.aging_data_display.text()
-
-        cvs_before_files = [
-            self.cvs_five_before_display.text(),
-            self.cvs_p_5_before_display.text(),
-        ]
-        cvs_after_files = [
-            self.cvs_five_after_display.text(),
-            self.cvs_p_5_after_display.text(),
-        ]
-
-        eis_before_files = [
-            self.eis_ocv_before_display.text(),
-            self.eis_p_5V_before_display.text(),
-            self.eis_one_V_before_display.text(),
-        ]
-        eis_after_files = [
-            self.eis_ocv_after_display.text(),
-            self.eis_p_5V_after_display.text(),
-            self.eis_one_V_after_display.text(),
-        ]
-
-        try:
-            self.aging_data = self.calc_aging_data(
-                file=aging_file, mass=mass, area=area
-            )
-        except KeyError:
-            dlg = QMessageBox(self)
-            dlg.setWindowTitle("File Error for Aging Data")
-            dlg.setText(
-                textwrap.dedent(
-                    """\
-                    The file loaded for "Aging Data" does not contain the correct data headers.
-                    Check to ensure the file is correct.
-                    """
-                )
-            )
-            dlg.setIcon(QMessageBox.Warning)
-            dlg.setStandardButtons(QMessageBox.Ok)
-            button = dlg.exec_()
-            return
-
-        try:
-            self.cvs_before = self.calc_cv_data_before_aging(
-                file_list=cvs_before_files, mass=mass
-            )
-        except KeyError:
-            dlg = QMessageBox(self)
-            dlg.setWindowTitle("File Error for CVs Before Aging Data")
-            dlg.setText(
-                textwrap.dedent(
-                    """\
-                    One, or both, files loaded for "CVs Before Aging" does not contain the correct data headers.
-                    Check to ensure the files are correct.
-                    """
-                )
-            )
-            dlg.setIcon(QMessageBox.Warning)
-            dlg.setStandardButtons(QMessageBox.Ok)
-            button = dlg.exec_()
-            return
-
-        try:
-            self.cvs_after = self.calc_cv_data_after_aging(
-                file_list=cvs_after_files, mass=mass
-            )
-        except KeyError:
-            dlg = QMessageBox(self)
-            dlg.setWindowTitle("File Error for CVs After Aging Data")
-            dlg.setText(
-                textwrap.dedent(
-                    """\
-                    One, or both, files loaded for "CVs After Aging" does not contain the correct data headers.
-                    Check to ensure the files are correct.
-                    """
-                )
-            )
-            dlg.setIcon(QMessageBox.Warning)
-            dlg.setStandardButtons(QMessageBox.Ok)
-            button = dlg.exec_()
-            return
-
-        try:
-            self.eis_before = self.calc_eis_data_before_aging(
-                file_list=eis_before_files, area=area
-            )
-        except KeyError:
-            dlg = QMessageBox(self)
-            dlg.setWindowTitle("File Error for EIS Before Aging Data")
-            dlg.setText(
-                textwrap.dedent(
-                    """\
-                    One, or multiple, files loaded for "EIS Before Aging" does not contain the correct data headers.
-                    Check to ensure the files are correct.
-                    """
-                )
-            )
-            dlg.setIcon(QMessageBox.Warning)
-            dlg.setStandardButtons(QMessageBox.Ok)
-            button = dlg.exec_()
-            return
-
-        try:
-            self.eis_after = self.calc_eis_data_after_aging(
-                file_list=eis_after_files, area=area
-            )
-        except KeyError:
-            dlg = QMessageBox(self)
-            dlg.setWindowTitle("File Error for EIS After Aging Data")
-            dlg.setText(
-                textwrap.dedent(
-                    """\
-                    One, or multiple, files loaded for "EIS After Aging" does not contain the correct data headers.
-                    Check to ensure the files are correct.
-                    """
-                )
-            )
-            dlg.setIcon(QMessageBox.Warning)
-            dlg.setStandardButtons(QMessageBox.Ok)
-            button = dlg.exec_()
-            return
-
-        try:
-            if (
-                not self.aging_data
-                and not self.cvs_before
-                and not self.cvs_after
-                and not self.eis_before
-                and not self.eis_after
-            ):
-                raise Exception
-        except Exception:
-            dlg = QMessageBox(self)
-            dlg.setWindowTitle("No files loaded!")
-            dlg.setText(
-                textwrap.dedent(
-                    """\
-                    No files were input for processing.
-                    At least one of the sections for "Aging Data", "CVs",
-                    or "EIS" must be filled in to continue. 
-                    """
-                )
-            )
-            dlg.setIcon(QMessageBox.Warning)
-            dlg.setStandardButtons(QMessageBox.Ok)
-            button = dlg.exec_()
-            return
+    def finish_processing(self):
+        self.close()
+        self.spinner.stop()
 
     def show_data_window(self):
         self.spinner.start()
-        worker = Worker(func=self.process_data, dialog=self)
-        QThreadPool.globalInstance().start(worker)
+        worker = Worker(dialog=self)
 
-    @pyqtSlot(object)
-    def set_data(self, window):
-        self.data_window = DataWindow(
-            aging_data=window.aging_data,
-            cvs_before=window.cvs_before,
-            cvs_after=window.cvs_after,
-            eis_before=window.eis_before,
-            eis_after=window.eis_after,
-        )
-        self.data_window.showMaximized()
-        self.close()
-        self.spinner.stop()
+        worker.signals.result.connect(self.set_data)
+        worker.signals.finished.connect(self.finish_processing)
+        self.threadpool.start(worker)
 
 
 def main():
