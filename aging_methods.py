@@ -316,16 +316,18 @@ class AgingData:
         # removes annoying null values from the top of the excel file for the ccd curves
         self.ccd_curves = self.ccd_curves.apply(lambda x: pd.Series(x.dropna().values))
 
+        export_data_dict = {
+            "Aging Cycles": self.aging_cycles,
+            "Qirr (mAh)": self.q_diff,
+            "Qirr cumulative (mAh)": self.total_qirr,
+            "Discharge Capacitance (F/g)": self.discharge_cap,
+            "Discharge cap decrease (%)": self.cap_decrease,
+            "Charge Capacitance (F/g)": self.charge_cap,
+            "IR drop (Ohm * cm2)": self.IR_drop,
+            "IR drop increase (%)": self.resist_increase,
+            "Leakage Current uA": self.leakage_current,
+        }
+
         self.aging_df = pd.DataFrame(
-            {
-                "Aging Cycles": self.aging_cycles,
-                "Qirr (mAh)": self.q_diff,
-                "Qirr cumulative (mAh)": self.total_qirr,
-                "Discharge Capacitance (F/g)": self.discharge_cap,
-                "Discharge cap decrease (%)": self.cap_decrease,
-                "Charge Capacitance (F/g)": self.charge_cap,
-                "IR drop (Ohm * cm2)": self.IR_drop,
-                "IR drop increase (%)": self.resist_increase,
-                "Leakage Current uA": self.leakage_current,
-            }
+            dict([(k, pd.Series(v)) for k, v in export_data_dict.items()])
         )
