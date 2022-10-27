@@ -22,6 +22,7 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
     QGridLayout,
     QFormLayout,
+    QStackedLayout,
     QWidget,
     QFrame,
     QLineEdit,
@@ -88,9 +89,6 @@ class FileWindow(QMainWindow):
         self.setWindowTitle("SuperCap Aging: Data Import")
         self.setMaximumWidth(1200)
         self.page_layout = QVBoxLayout()
-
-        self.spinner = QtWaitingSpinner(self, True, True, Qt.ApplicationModal)
-        self.page_layout.addWidget(self.spinner)
 
         entry_boxes = QWidget()
         entry_layout = QFormLayout()
@@ -301,10 +299,20 @@ class FileWindow(QMainWindow):
         process.clicked.connect(self.show_data_window)
         self.page_layout.addWidget(process)
 
-        container = QWidget()
-        container.setLayout(self.page_layout)
-        self.setCentralWidget(container)
+        main_page = QWidget()
+        main_page.setLayout(self.page_layout)
 
+        stack = QWidget()
+        self.stack_layout = QStackedLayout()
+        self.stack_layout.setStackingMode(QStackedLayout.StackAll)
+        stack.setLayout(self.stack_layout)
+
+        self.stack_layout.addWidget(main_page)
+
+        self.spinner = QtWaitingSpinner(self, True, True, Qt.ApplicationModal)
+        self.stack_layout.addWidget(self.spinner)
+
+        self.setCentralWidget(stack)
         self.threadpool = QThreadPool()
 
     def get_csv_files(self, widget):
@@ -321,6 +329,14 @@ class FileWindow(QMainWindow):
         )
         widget.setText(filename)
 
+    def show_data_window(self):
+        self.stack_layout.setCurrentIndex(1)
+        self.spinner.start()
+        worker = Worker(dialog=self)
+        worker.signals.result.connect(self.set_data)
+        worker.signals.finished.connect(self.finish_processing)
+        self.threadpool.start(worker)
+
     def set_data(self, aging_data, cvs_before, cvs_after, eis_before, eis_after):
         self.data_window = DataWindow(
             aging_data=aging_data,
@@ -334,14 +350,6 @@ class FileWindow(QMainWindow):
     def finish_processing(self):
         self.close()
         self.spinner.stop()
-
-    def show_data_window(self):
-        self.spinner.start()
-        worker = Worker(dialog=self)
-
-        worker.signals.result.connect(self.set_data)
-        worker.signals.finished.connect(self.finish_processing)
-        self.threadpool.start(worker)
 
 
 def main():

@@ -36,7 +36,7 @@ class QtWaitingSpinner(QWidget):
         disableParentWhenSpinning=False,
         modality=Qt.NonModal,
     ):
-        super().__init__(parent)
+        super().__init__(parent, flags=Qt.Dialog | Qt.FramelessWindowHint)
 
         self._centerOnParent = centerOnParent
         self._disableParentWhenSpinning = disableParentWhenSpinning
@@ -47,10 +47,10 @@ class QtWaitingSpinner(QWidget):
         self._minimumTrailOpacity = 3.14159265358979323846
         self._trailFadePercentage = 80.0
         self._revolutionsPerSecond = 1.57079632679489661923
-        self._numberOfLines = 20
-        self._lineLength = 50
+        self._numberOfLines = 15
+        self._lineLength = 30
         self._lineWidth = 5
-        self._innerRadius = 20
+        self._innerRadius = 15
         self._currentCounter = 0
         self._isSpinning = False
 
