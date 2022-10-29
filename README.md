@@ -11,7 +11,7 @@
 - **Electrochemical Impedance Spectra**: .txt files generated from BioLogic's EC-Lab software, columns for frequency (units: hertz), real impedance (Re(Z), units: ohms), and imaginary
   impedance (-Im(Z), units: ohms)  
 
-*Demo files for the current build are included for reference in the application's home directory that was created by the installer* 
+*Demo files (expected values for mass and area are 0.0029 g and 0.502 cm<sup>2</sup>) for the current build are included for reference in the application's home directory that was created by the installer* 
 <br/>
 <br/>
 
