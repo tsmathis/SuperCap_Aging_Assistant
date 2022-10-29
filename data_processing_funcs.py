@@ -1,10 +1,6 @@
-import textwrap
-
 from aging_methods import AgingData
 from eis import Eis
 from cvs import CVs
-
-from PyQt5.QtWidgets import QMessageBox
 
 
 def calc_aging_data(file, mass, area):
@@ -20,56 +16,30 @@ def calc_aging_data(file, mass, area):
     return aging
 
 
-def calc_cv_data_before_aging(file_list, mass):
+def calc_cv_data(file_list, mass):
     rates = [5, 0.5]
-    cvs_before = {}
+    cv_data = {}
     for idx, cv in enumerate(file_list):
         if len(cv) == 0:
             continue
-        cvs_before[rates[idx]] = CVs(rate=rates[idx], mass=mass)
-        cvs_before[rates[idx]].read_prep_data(cv)
-        cvs_before[rates[idx]].calc_capacitance()
-        cvs_before[rates[idx]].prep_export()
-    return cvs_before
+        cv_data[rates[idx]] = CVs(rate=rates[idx], mass=mass)
+        cv_data[rates[idx]].read_prep_data(cv)
+        cv_data[rates[idx]].calc_capacitance()
+        cv_data[rates[idx]].prep_export()
+    return cv_data
 
 
-def calc_cv_data_after_aging(file_list, mass):
-    rates = [5, 0.5]
-    cvs_after = {}
-    for idx, cv in enumerate(file_list):
-        if len(cv) == 0:
-            continue
-        cvs_after[rates[idx]] = CVs(rate=rates[idx], mass=mass)
-        cvs_after[rates[idx]].read_prep_data(cv)
-        cvs_after[rates[idx]].calc_capacitance()
-        cvs_after[rates[idx]].prep_export()
-    return cvs_after
-
-
-def calc_eis_data_before_aging(file_list, area):
+def calc_eis_data(file_list, area):
     labels = ["OCV", "0.5 V", "1.0 V"]
-    eis_before = {}
+    eis_data = {}
     for idx, eis in enumerate(file_list):
         if len(eis) == 0:
             continue
-        eis_before[labels[idx]] = Eis(area=area)
-        eis_before[labels[idx]].read_data(eis)
-        eis_before[labels[idx]].calc_eis_cap()
-        eis_before[labels[idx]].prep_export()
-    return eis_before
-
-
-def calc_eis_data_after_aging(file_list, area):
-    labels = ["OCV", "0.5 V", "1.0 V"]
-    eis_after = {}
-    for idx, eis in enumerate(file_list):
-        if len(eis) == 0:
-            continue
-        eis_after[labels[idx]] = Eis(area=area)
-        eis_after[labels[idx]].read_data(eis)
-        eis_after[labels[idx]].calc_eis_cap()
-        eis_after[labels[idx]].prep_export()
-    return eis_after
+        eis_data[labels[idx]] = Eis(area=area)
+        eis_data[labels[idx]].read_data(eis)
+        eis_data[labels[idx]].calc_eis_cap()
+        eis_data[labels[idx]].prep_export()
+    return eis_data
 
 
 def process_data(
@@ -87,38 +57,9 @@ def process_data(
     eis_p_5V_after_display,
     eis_one_V_after_display,
 ):
-    try:
-        mass = float(mass_entry)
-    except ValueError:
-        dlg = QMessageBox()
-        dlg.setWindowTitle("No mass input")
-        dlg.setText(
-            textwrap.dedent(
-                """\
-                Please enter a value for the electrode mass (in g).
-                """
-            )
-        )
-        dlg.setIcon(QMessageBox.Warning)
-        dlg.setStandardButtons(QMessageBox.Ok)
-        button = dlg.exec_()
-        return
-    try:
-        area = float(area_entry)
-    except ValueError:
-        dlg = QMessageBox()
-        dlg.setWindowTitle("No area input")
-        dlg.setText(
-            textwrap.dedent(
-                """\
-                Please enter a value for the electrode area (in cm<sup>2</sup>).
-                """
-            )
-        )
-        dlg.setIcon(QMessageBox.Warning)
-        dlg.setStandardButtons(QMessageBox.Ok)
-        button = dlg.exec_()
-        return
+
+    mass = float(mass_entry)
+    area = float(area_entry)
 
     aging_file = aging_data_display
 
@@ -139,120 +80,10 @@ def process_data(
         eis_one_V_after_display,
     ]
 
-    try:
-        aging_data = calc_aging_data(file=aging_file, mass=mass, area=area)
-    except KeyError:
-        dlg = QMessageBox()
-        dlg.setWindowTitle("File Error for Aging Data")
-        dlg.setText(
-            textwrap.dedent(
-                """\
-                The file loaded for "Aging Data" does not contain the correct data headers.
-                Check to ensure the file is correct.
-                """
-            )
-        )
-        dlg.setIcon(QMessageBox.Warning)
-        dlg.setStandardButtons(QMessageBox.Ok)
-        button = dlg.exec_()
-        return
-
-    try:
-        cvs_before = calc_cv_data_before_aging(file_list=cvs_before_files, mass=mass)
-    except KeyError:
-        dlg = QMessageBox()
-        dlg.setWindowTitle("File Error for CVs Before Aging Data")
-        dlg.setText(
-            textwrap.dedent(
-                """\
-                One, or both, files loaded for "CVs Before Aging" does not contain the correct data headers.
-                Check to ensure the files are correct.
-                """
-            )
-        )
-        dlg.setIcon(QMessageBox.Warning)
-        dlg.setStandardButtons(QMessageBox.Ok)
-        button = dlg.exec_()
-        return
-
-    try:
-        cvs_after = calc_cv_data_after_aging(file_list=cvs_after_files, mass=mass)
-    except KeyError:
-        dlg = QMessageBox()
-        dlg.setWindowTitle("File Error for CVs After Aging Data")
-        dlg.setText(
-            textwrap.dedent(
-                """\
-                One, or both, files loaded for "CVs After Aging" does not contain the correct data headers.
-                Check to ensure the files are correct.
-                """
-            )
-        )
-        dlg.setIcon(QMessageBox.Warning)
-        dlg.setStandardButtons(QMessageBox.Ok)
-        button = dlg.exec_()
-        return
-
-    try:
-        eis_before = calc_eis_data_before_aging(file_list=eis_before_files, area=area)
-    except KeyError:
-        dlg = QMessageBox()
-        dlg.setWindowTitle("File Error for EIS Before Aging Data")
-        dlg.setText(
-            textwrap.dedent(
-                """\
-                One, or multiple, files loaded for "EIS Before Aging" does not contain the correct data headers.
-                Check to ensure the files are correct.
-                """
-            )
-        )
-        dlg.setIcon(QMessageBox.Warning)
-        dlg.setStandardButtons(QMessageBox.Ok)
-        button = dlg.exec_()
-        return
-
-    try:
-        eis_after = calc_eis_data_after_aging(file_list=eis_after_files, area=area)
-    except KeyError:
-        dlg = QMessageBox()
-        dlg.setWindowTitle("File Error for EIS After Aging Data")
-        dlg.setText(
-            textwrap.dedent(
-                """\
-                One, or multiple, files loaded for "EIS After Aging" does not contain the correct data headers.
-                Check to ensure the files are correct.
-                """
-            )
-        )
-        dlg.setIcon(QMessageBox.Warning)
-        dlg.setStandardButtons(QMessageBox.Ok)
-        button = dlg.exec_()
-        return
-
-    try:
-        if (
-            not aging_data
-            and not cvs_before
-            and not cvs_after
-            and not eis_before
-            and not eis_after
-        ):
-            raise Exception
-    except Exception:
-        dlg = QMessageBox()
-        dlg.setWindowTitle("No files loaded!")
-        dlg.setText(
-            textwrap.dedent(
-                """\
-                No files were input for processing.
-                At least one of the sections for "Aging Data", "CVs",
-                or "EIS" must be filled in to continue. 
-                """
-            )
-        )
-        dlg.setIcon(QMessageBox.Warning)
-        dlg.setStandardButtons(QMessageBox.Ok)
-        button = dlg.exec_()
-        return
+    aging_data = calc_aging_data(file=aging_file, mass=mass, area=area)
+    cvs_before = calc_cv_data(file_list=cvs_before_files, mass=mass)
+    cvs_after = calc_cv_data(file_list=cvs_after_files, mass=mass)
+    eis_before = calc_eis_data(file_list=eis_before_files, area=area)
+    eis_after = calc_eis_data(file_list=eis_after_files, area=area)
 
     return aging_data, cvs_before, cvs_after, eis_before, eis_after

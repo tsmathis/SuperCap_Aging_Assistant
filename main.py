@@ -1,4 +1,4 @@
-import sys, os
+import sys, os, traceback, textwrap
 
 from data_processing_funcs import process_data
 from data_window_ui import DataWindow
@@ -14,6 +14,7 @@ from PyQt5.QtCore import (
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import (
     QApplication,
+    QMessageBox,
     QFileDialog,
     QMainWindow,
     QPushButton,
@@ -44,9 +45,23 @@ except ImportError:
     pass
 
 
+def exception_handler(error, window_title):
+    dlg = QMessageBox()
+    dlg.setWindowTitle(window_title)
+    dlg.setText(textwrap.dedent(error))
+    dlg.setIcon(QMessageBox.Warning)
+    dlg.setStandardButtons(QMessageBox.Ok)
+    button = dlg.exec_()
+    return
+
+
+class EmptyFileIO(Exception):
+    pass
+
+
 class WorkerSignals(QObject):
     finished = pyqtSignal()
-    error = pyqtSignal(str)
+    error = pyqtSignal(str, str)
     result = pyqtSignal(object, object, object, object, object)
 
 
@@ -73,8 +88,32 @@ class Worker(QRunnable):
                 eis_p_5V_after_display=self.w.eis_p_5V_after_display.text(),
                 eis_one_V_after_display=self.w.eis_one_V_after_display.text(),
             )
-        except:
-            pass
+            if (
+                not aging_data
+                and not cvs_before
+                and not cvs_after
+                and not eis_before
+                and not eis_after
+            ):
+                raise EmptyFileIO
+
+        except ValueError:
+            err = """
+            Please ensure values are entered for both the electrode mass (in g) and the electrode area (in cm<sup>2</sup>)
+            """
+            self.signals.error.emit(str(err), str("Mass/Area Input Error"))
+            return
+        except KeyError:
+            exc_class, exc, exc_traceback = sys.exc_info()
+            tb = "\n".join(
+                [
+                    "".join(traceback.format_tb(exc_traceback)),
+                    "{0}: {1}".format(exc_class.__name__, exc),
+                ]
+            )
+            self.signals.error.emit(str(tb), str("File Parsing Error"))
+        except EmptyFileIO:
+            self.signals.error.emit("No files loaded", str("Empty File Input"))
         else:
             self.signals.result.emit(
                 aging_data, cvs_before, cvs_after, eis_before, eis_after
@@ -335,6 +374,7 @@ class FileWindow(QMainWindow):
         worker = Worker(dialog=self)
         worker.signals.result.connect(self.set_data)
         worker.signals.finished.connect(self.finish_processing)
+        worker.signals.error.connect(self.process_error)
         self.threadpool.start(worker)
 
     def set_data(self, aging_data, cvs_before, cvs_after, eis_before, eis_after):
@@ -350,6 +390,13 @@ class FileWindow(QMainWindow):
     def finish_processing(self):
         self.close()
         self.spinner.stop()
+
+    def process_error(self, error, title):
+        self.spinner.stop()
+        exception_handler(
+            error=error,
+            window_title=title,
+        )
 
 
 def main():
