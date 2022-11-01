@@ -84,7 +84,7 @@ class DataWindow(QMainWindow):
 
         for i in range(12):
             button = ClickableWidget(idx=i)
-            button.clicked.connect(self.change_activate_view)
+            button.clicked.connect(self.change_active_view)
             if i % 2 == 0:
                 button_layout.addWidget(button, int(i / 2), 0, 1, 1)
             else:
@@ -242,7 +242,7 @@ class DataWindow(QMainWindow):
         widget.setLayout(pagelayout)
         self.setCentralWidget(widget)
 
-    def change_activate_view(self, clicked):
+    def change_active_view(self, clicked):
         self.stacklayout.setCurrentIndex(clicked)
 
     def get_export_location(self):

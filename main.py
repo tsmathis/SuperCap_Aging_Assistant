@@ -1,4 +1,4 @@
-import sys, os, traceback, textwrap
+import sys, os, traceback, textwrap, inspect
 
 from data_processing_funcs import process_data
 from data_window_ui import DataWindow
@@ -98,22 +98,49 @@ class Worker(QRunnable):
                 raise EmptyFileIO
 
         except ValueError:
-            err = """
+            err_msg = """
             Please ensure values are entered for both the electrode mass (in g) and the electrode area (in cm<sup>2</sup>)
             """
-            self.signals.error.emit(str(err), str("Mass/Area Input Error"))
-            return
-        except KeyError:
-            exc_class, exc, exc_traceback = sys.exc_info()
-            tb = "\n".join(
-                [
-                    "".join(traceback.format_tb(exc_traceback)),
-                    "{0}: {1}".format(exc_class.__name__, exc),
-                ]
-            )
-            self.signals.error.emit(str(tb), str("File Parsing Error"))
+            self.signals.error.emit(err_msg, "Mass/Area Input Error")
+
+        except IndexError:
+            err_msg = """
+            The "Aging Data" file did not contain the expected columns. Please double check that your data file contains the expected columns. 
+            
+            Consult the documentation to view the complete list of expected columns. 
+            """
+            self.signals.error.emit(err_msg, "File parsing error")
+
+        except KeyError as exc:
+            filename, lineno, funcname, text = traceback.extract_tb(exc.__traceback__)[
+                2
+            ]
+
+            frames = inspect.trace()
+            argvalues = inspect.getargvalues(frames[2][0])
+
+            if "eis" in funcname:
+                err = "EIS"
+            elif "cv" in funcname:
+                err = "cyclic voltammogram"
+            elif "aging" in funcname:
+                err = "aging"
+
+            err_msg = f"""
+            An error occurred when processing the {err} data using one of the following files:
+
+            "{next(iter(argvalues[3].values()))}"
+
+            The file was missing the following expected column: "{exc}"
+
+            Please ensure the correct files are loaded in the {err} section. If this error persists, double check that your data files contain the columns you expect.
+            """
+
+            self.signals.error.emit(err_msg, "File Parsing Error")
+
         except EmptyFileIO:
-            self.signals.error.emit("No files loaded", str("Empty File Input"))
+            self.signals.error.emit("No files loaded", "Empty File Input")
+
         else:
             self.signals.result.emit(
                 aging_data, cvs_before, cvs_after, eis_before, eis_after
