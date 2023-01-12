@@ -22,7 +22,7 @@ proceeds as follows: (1) Pre-aging electrochemical characterization using cyclic
   
 *Note: It is not required to fill in all of the file import fields, feel free to pick and choose the sections that are applicable for you.*
   
-![alt text](https://github.com/tsmathis/SuperCap_Aging_Assistant/tree/main/data/images/accelerated_aging_example.png)
+![alt text](data/images/accelerated_aging_example.png)
 Example of an electrochemical "aging cycle".[^4]
 <br/>
 <br/>
