@@ -2,7 +2,7 @@ import sys, os, traceback, textwrap, inspect
 
 from data_processing_funcs import process_data
 from data_window_ui import DataWindow
-from src.spinner_widget import QtWaitingSpinner
+from spinner_widget import QtWaitingSpinner
 
 from PyQt5.QtCore import (
     Qt,
